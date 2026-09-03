@@ -85,14 +85,28 @@ const MEMBERS_FILE = [
   'Mr NICOLAS ZITTE',
 ]
 
-// Migration unique : injecte les membres du fichier dans les profils EXISTANTS au premier lancement.
-// Un flag empêche de rejouer ceci, donc les FUTURS profils ne sont pas concernés.
+// Migration unique : injecte les membres du fichier dans les profils EXISTANTS.
+// Le flag enregistre les IDs des profils DÉJÀ traités, afin que les FUTURS profils
+// ne soient pas concernés, tout en permettant de traiter des profils existants
+// même si aucun profil n'existait à un chargement précédent.
 const SEED_MEMBERS_FLAG = 'maintenance-app-seeded-members'
 
+function loadSeeded() {
+  try {
+    const raw = localStorage.getItem(SEED_MEMBERS_FLAG)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr : []
+  } catch (e) {
+    return []
+  }
+}
+
 function seedMembersOnce() {
-  if (localStorage.getItem(SEED_MEMBERS_FLAG)) return
+  const seeded = loadSeeded()
   const profiles = loadProfiles()
+  const updated = [...seeded]
   profiles.forEach((profile) => {
+    if (seeded.includes(profile.id)) return
     const key = dataKey(profile.id)
     let data = {}
     try {
@@ -103,8 +117,11 @@ function seedMembersOnce() {
     const merged = [...new Set([...(data.members || []), ...MEMBERS_FILE])]
     data.members = merged
     localStorage.setItem(key, JSON.stringify(data))
+    updated.push(profile.id)
   })
-  localStorage.setItem(SEED_MEMBERS_FLAG, '1')
+  if (updated.length) {
+    localStorage.setItem(SEED_MEMBERS_FLAG, JSON.stringify(updated))
+  }
 }
 
 export function AppProvider({ children }) {
