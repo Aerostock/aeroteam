@@ -6,10 +6,10 @@ const navItems = [
   { to: '/', label: 'Tableau de bord', end: true },
   { to: '/import', label: 'Importer Excel' },
   { to: '/taches', label: 'Tâches' },
-  { to: '/preparation', label: 'Préparation' },
   { to: '/equipes', label: 'Équipes' },
   { to: '/affectation', label: 'Affectation' },
   { to: '/export', label: 'Export' },
+  { to: '/preparation', label: 'Préparation' },
 ]
 
 export default function Layout({ children }) {
