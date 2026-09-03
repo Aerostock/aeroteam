@@ -26,7 +26,7 @@ function dedupeTasks(tasks) {
   return out
 }
 
-const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [] }
+const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [], prepTasks: [] }
 
 export function AppProvider({ children }) {
   const [code, setCode] = useState(loadActiveCode)
@@ -38,6 +38,7 @@ export function AppProvider({ children }) {
   const [teams, setTeams] = useState([])
   const [assignments, setAssignments] = useState({})
   const [members, setMembers] = useState([])
+  const [prepTasks, setPrepTasks] = useState([])
   const [loaded, setLoaded] = useState(false)
 
   const saveTimer = useRef(null)
@@ -51,6 +52,7 @@ export function AppProvider({ children }) {
       setTeams([])
       setAssignments({})
       setMembers([])
+      setPrepTasks([])
       setLoaded(false)
       return
     }
@@ -77,6 +79,7 @@ export function AppProvider({ children }) {
         setTeams(data.teams || [])
         setAssignments(data.assignments || {})
         setMembers(data.members || [])
+        setPrepTasks(data.prepTasks || [])
         setLoaded(true)
       })
       .catch((err) => {
@@ -99,13 +102,13 @@ export function AppProvider({ children }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       profileStore
-        .saveProfileData(code, { tasks, teams, assignments, members })
+        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks })
         .catch((err) => console.error('Sauvegarde Supabase échouée', err))
     }, 600)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [isConnected, loaded, code, tasks, teams, assignments, members])
+  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks])
 
   const connectProfile = useCallback(async (profileCode) => {
     const c = String(profileCode || '').trim()
@@ -145,6 +148,7 @@ export function AppProvider({ children }) {
     setTeams([])
     setAssignments({})
     setMembers([])
+    setPrepTasks([])
     setLoaded(false)
     if (saveTimer.current) clearTimeout(saveTimer.current)
   }, [])
@@ -243,6 +247,36 @@ export function AppProvider({ children }) {
     setMembers([])
   }, [])
 
+  const addPrepTasks = useCallback((newTasks) => {
+    setPrepTasks((prev) => {
+      const existingSeqs = new Set(prev.map((t) => t.seq).filter((s) => s !== undefined && s !== ''))
+      const existingIds = new Set(prev.map((t) => t.id))
+      const fresh = newTasks
+        .filter((t) => !existingIds.has(t.id))
+        .filter((t) => {
+          if (t.seq === undefined || t.seq === '') return true
+          return !existingSeqs.has(t.seq)
+        })
+        .map((t, i) => ({
+          ...t,
+          id: t.id || `${Date.now()}-${i}`,
+        }))
+      return [...prev, ...fresh]
+    })
+  }, [])
+
+  const removePrepTask = useCallback((taskId) => {
+    setPrepTasks((prev) => prev.filter((t) => t.id !== taskId))
+  }, [])
+
+  const removePrepTasksByBlock = useCallback((block) => {
+    setPrepTasks((prev) => prev.filter((t) => t.taskType !== block))
+  }, [])
+
+  const clearPrepTasks = useCallback(() => {
+    setPrepTasks([])
+  }, [])
+
   const addMember = useCallback((name) => {
     const trimmed = String(name).trim()
     if (!trimmed) return
@@ -270,12 +304,13 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    tasks, teams, assignments, members,
+    tasks, teams, assignments, members, prepTasks,
     activeProfile, code,
     loading, error,
     connectProfile, createProfile, disconnect, deleteProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
+    addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

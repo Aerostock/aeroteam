@@ -8,6 +8,7 @@ import Taches from './pages/Taches'
 import Equipes from './pages/Equipes'
 import Affectation from './pages/Affectation'
 import Export from './pages/Export'
+import Preparation from './pages/Preparation'
 
 function AppContent() {
   const { activeProfile, loading, error } = useApp()
@@ -28,6 +29,7 @@ function AppContent() {
         <Route path="/taches" element={<Taches />} />
         <Route path="/equipes" element={<Equipes />} />
         <Route path="/affectation" element={<Affectation />} />
+        <Route path="/preparation" element={<Preparation />} />
         <Route path="/export" element={<Export />} />
       </Routes>
     </Layout>
