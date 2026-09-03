@@ -1,0 +1,362 @@
+import { useMemo, useEffect, useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { getCategoryColor, getZoneColor, groupTasksByCategory } from '../utils/helpers'
+import {
+  ClipboardList,
+  CheckCircle2,
+  Plane,
+  AlertTriangle,
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  X,
+} from 'lucide-react'
+
+export default function Dashboard() {
+  const { tasks, teams, assignments } = useApp()
+  const [selectedTeamId, setSelectedTeamId] = useState(null)
+
+  const ALL_BLOCKS_KEY = 'dashboard-expanded-blocks'
+  const [expandedBlocks, setExpandedBlocks] = useState(() =>
+    JSON.parse(localStorage.getItem(ALL_BLOCKS_KEY) || '[]')
+  )
+
+  useEffect(() => {
+    localStorage.setItem(ALL_BLOCKS_KEY, JSON.stringify(expandedBlocks))
+  }, [expandedBlocks])
+
+  const toggleBlock = (block) =>
+    setExpandedBlocks((prev) =>
+      prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
+    )
+
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId) || null
+  const selectedTeamTasks = selectedTeam
+    ? tasks.filter((t) => assignments[t.id] === selectedTeam.id)
+    : []
+
+  const zones = useMemo(() => {
+    return [...new Set(tasks.map((t) => t.workArea).filter(Boolean))].sort()
+  }, [tasks])
+
+  const stats = useMemo(() => {
+    const total = tasks.length
+    const assigned = Object.keys(assignments).filter((id) => assignments[id]).length
+    const unassigned = total - assigned
+    const totalMembers = teams.reduce((acc, t) => acc + t.members.length, 0)
+    const avgPerTeam = teams.length ? (assigned / teams.length).toFixed(1) : '0'
+    return { total, assigned, unassigned, totalMembers, avgPerTeam }
+  }, [tasks, teams, assignments])
+
+  const byBlock = useMemo(() => {
+    const counts = {}
+    tasks.forEach((t) => {
+      const c = t.taskType || 'AUTRE'
+      counts[c] = (counts[c] || 0) + 1
+    })
+    return counts
+  }, [tasks])
+
+  const hoursTotal = useMemo(() => {
+    return tasks.reduce((acc, t) => {
+      const h = t.scheduledHours
+      if (!h) return acc
+      const [hh, mm] = String(h).split(':').map(Number)
+      if (!isNaN(hh)) return acc + hh + (isNaN(mm) ? 0 : mm / 60)
+      return acc
+    }, 0)
+  }, [tasks])
+
+  const teamLoad = useMemo(
+    () =>
+      teams.map((team) => {
+        const teamTaskIds = Object.entries(assignments)
+          .filter(([, id]) => id === team.id)
+          .map(([taskId]) => taskId)
+        const teamTasks = tasks.filter((t) => teamTaskIds.includes(t.id))
+        const byBlock = {}
+        teamTasks.forEach((t) => {
+          const zone = t.workArea || 'Autre'
+          const key = `${t.taskType || 'AUTRE'} / ${zone}`
+          if (!byBlock[key]) byBlock[key] = { count: 0, seqs: [] }
+          byBlock[key].count += 1
+          if (t.seq !== undefined && t.seq !== '') byBlock[key].seqs.push(String(t.seq))
+        })
+        Object.values(byBlock).forEach((v) =>
+          v.seqs.sort((a, b) => Number(a) - Number(b))
+        )
+        return {
+          ...team,
+          count: teamTasks.length,
+          membersCount: team.members.length,
+          byBlock,
+          perMember: team.members.length
+            ? (teamTasks.length / team.members.length).toFixed(1)
+            : '0',
+        }
+      }),
+    [teams, tasks, assignments]
+  )
+
+  const allUnassigned = useMemo(
+    () => tasks.filter((t) => !assignments[t.id]),
+    [tasks, assignments]
+  )
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">Tableau de bord</h1>
+        <p className="text-slate-600 mt-1">Vue d'ensemble du workpackage</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={<ClipboardList className="h-6 w-6" />} label="Tâches totales" value={stats.total} color="bg-sky-50 text-sky-600" />
+        <StatCard icon={<CheckCircle2 className="h-6 w-6" />} label="Tâches assignées" value={stats.assigned} color="bg-green-50 text-green-600" />
+        <StatCard icon={<AlertTriangle className="h-6 w-6" />} label="Non assignées" value={stats.unassigned} color="bg-amber-50 text-amber-600" />
+        <StatCard icon={<Clock className="h-6 w-6" />} label="Heures totales" value={`${hoursTotal.toFixed(1)}h`} color="bg-violet-50 text-violet-600" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Plane className="h-5 w-5 text-sky-500" /> Répartition par bloc
+          </h2>
+          {tasks.length === 0 ? (
+            <p className="text-slate-500">Importez des tâches pour voir la répartition.</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(byBlock)
+                .sort((a, b) => b[1] - a[1])
+                .map(([block, count]) => {
+                  const color = getCategoryColor(block)
+                  const pct = Math.round((count / tasks.length) * 100)
+                  return (
+                    <div key={block}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium">{block}</span>
+                        <span className="text-slate-500">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+        </div>
+
+        {allUnassigned.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">À traiter (non assignées)</h2>
+              <span className="text-sm text-slate-500">{allUnassigned.length} tâche(s)</span>
+            </div>
+            <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {Object.entries(groupTasksByCategory(allUnassigned)).map(([block, blockTasks]) => {
+                const color = getCategoryColor(block)
+                const blockExpanded = expandedBlocks.includes(block)
+                return (
+                  <div key={block}>
+                    <div
+                      className="px-3 py-2 cursor-pointer select-none"
+                      style={{ backgroundColor: `${color}14`, borderLeft: `4px solid ${color}` }}
+                      onClick={() => toggleBlock(block)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {blockExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-slate-500 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" />
+                        )}
+                        <span className="font-semibold text-sm" style={{ color }}>
+                          {block}
+                        </span>
+                        <span className="text-xs text-slate-500">({blockTasks.length} tâche(s))</span>
+                      </div>
+                    </div>
+                    {blockExpanded && (
+                      <div className="divide-y divide-slate-100">
+                        {blockTasks.map((task) => (
+                          <div key={task.id} className="px-3 py-1.5 flex items-center gap-2 text-sm pl-8">
+                            <span className="w-10 shrink-0 font-bold text-slate-500">{task.seq || '—'}</span>
+                            <span className="flex-1 truncate text-slate-700" title={task.description}>
+                              {task.description}
+                            </span>
+                            {task.registration && (
+                              <span className="shrink-0 text-xs text-slate-400">✈ {task.registration}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {teams.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-500" /> Récap détaillé de la charge par équipe
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left bg-slate-50 border-b">
+                  <th className="px-4 py-2 font-semibold text-slate-700">Équipe</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Tâches</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Membres</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Par membre</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Blocs (répartition)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamLoad
+                  .sort((a, b) => b.count - a.count)
+                  .map((team) => (
+                    <tr key={team.id} className="border-b hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedTeamId(team.id)}>
+                      <td className="px-4 py-2 font-medium underline decoration-dotted underline-offset-4" style={{ color: team.color }}>
+                        {team.name}
+                      </td>
+                      <td className="px-4 py-2">{team.count}</td>
+                      <td className="px-4 py-2">{team.membersCount}</td>
+                      <td className="px-4 py-2">{team.perMember}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-col gap-1">
+                          {Object.keys(team.byBlock).length === 0 && (
+                            <span className="text-xs text-slate-400 italic">—</span>
+                          )}
+                          {Object.entries(team.byBlock)
+                            .sort((a, b) => b[1].count - a[1].count)
+                            .map(([key, info]) => {
+                              const [blk, zone] = key.split(' / ')
+                              const blkColor = getCategoryColor(blk)
+                              const zoneColor = getZoneColor(zone, zones)
+                              return (
+                                <div key={key} className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="px-2 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
+                                      style={{ backgroundColor: blkColor }}
+                                    >
+                                      {blk}
+                                    </span>
+                                    <span
+                                      className="px-2 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
+                                      style={{ backgroundColor: zoneColor }}
+                                    >
+                                      {zone}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      · {info.count}
+                                    </span>
+                                  </div>
+                                  {info.seqs.length > 0 && (
+                                    <span className="text-[11px] font-mono font-bold text-slate-600 ml-1">
+                                      N° {info.seqs.join(', ')}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-slate-400 pt-3">
+            Charge moyenne : {stats.avgPerTeam} tâches / équipe ·{' '}
+            {stats.totalMembers} technicien(s) au total
+          </p>
+        </div>
+      )}
+
+      {selectedTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedTeamId(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3 flex items-center justify-between border-b" style={{ backgroundColor: selectedTeam.color }}>
+              <div className="text-white">
+                <h2 className="font-bold text-lg">{selectedTeam.name}</h2>
+                <p className="text-white/90 text-xs">
+                  {selectedTeamTasks.length} tâche(s) assignée(s) ·{' '}
+                  {selectedTeam.members.length} membre(s) : {selectedTeam.members.join(', ') || '—'}
+                </p>
+              </div>
+              <button onClick={() => setSelectedTeamId(null)} className="text-white/80 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {selectedTeamTasks.length === 0 && (
+                <p className="text-slate-500">Aucune tâche assignée à cette équipe.</p>
+              )}
+              {selectedTeamTasks.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left bg-slate-100 rounded">
+                      <th className="px-3 py-2 font-semibold text-slate-700">TRFX</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">N°</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Type</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Bloc</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Tâche</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Appareil</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTeamTasks.map((task) => (
+                      <tr key={task.id} className="border-b hover:bg-slate-50">
+                        <td className="px-3 py-2 font-mono font-bold text-xs text-slate-600 whitespace-nowrap">
+                          {task.taskBarcode || '—'}
+                        </td>
+                        <td className="px-3 py-2 font-bold text-slate-500 whitespace-nowrap">
+                          {task.seq || '—'}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
+                            {task.taskType || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {task.workArea ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getZoneColor(task.workArea, zones) }}>
+                              {task.workArea}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 max-w-md" title={task.description}>
+                          <p className="truncate">{task.description}</p>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">
+                            {task.registration || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatCard({ icon, label, value, color }) {
+  return (
+    <div className="bg-white rounded-xl shadow p-5">
+      <div className={`inline-flex p-2 rounded-lg ${color}`}>{icon}</div>
+      <div className="mt-3 text-3xl font-bold text-slate-900">{value}</div>
+      <div className="text-sm text-slate-500">{label}</div>
+    </div>
+  )
+}

@@ -1,0 +1,249 @@
+import { useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { UserPlus, Users, Trash2, Plus, X, BookUser } from 'lucide-react'
+
+export default function Equipes() {
+  const {
+    teams, members, assignments,
+    addTeam, updateTeam, removeTeam,
+    addMembers, removeMember,
+  } = useApp()
+  const [showAdd, setShowAdd] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [selected, setSelected] = useState([])
+  const [memberInput, setMemberInput] = useState('')
+
+  const taskCountByTeam = (teamId) =>
+    Object.values(assignments).filter((id) => id === teamId).length
+
+  // Membres pré-enregistrés non encore affectés à une équipe
+  const availableMembers = members.filter(
+    (m) => !teams.some((t) => t.members.includes(m))
+  )
+
+  const toggleSelected = (name) => {
+    setSelected((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  const handleCreate = () => {
+    if (!newName.trim() || selected.length === 0) return
+    addTeam({ name: newName.trim(), members: [...selected], color: defaultColors[teams.length % defaultColors.length] })
+    setNewName('')
+    setSelected([])
+    setShowAdd(false)
+  }
+
+  const handleBulkAdd = () => {
+    const names = memberInput
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean)
+    if (names.length === 0) return
+    addMembers(names)
+    setMemberInput('')
+  }
+
+  // Membres pré-enregistrés pas encore affectés à cette équipe
+  const availableForTeam = (team) =>
+    members.filter((m) => !team.members.includes(m))
+
+  const addToTeam = (teamId, name) => {
+    const team = teams.find((t) => t.id === teamId)
+    updateTeam(teamId, { members: [...team.members, name] })
+  }
+
+  const removeFromTeam = (teamId, memberName) => {
+    const team = teams.find((t) => t.id === teamId)
+    updateTeam(teamId, { members: team.members.filter((m) => m !== memberName) })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Gestion des équipes</h1>
+          <p className="text-slate-600 mt-1">
+            {teams.length} équipe(s) — les membres sont pré-enregistrés et cochés pour composer les équipes
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 flex items-center gap-2"
+        >
+          {showAdd ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {showAdd ? 'Annuler' : 'Nouvelle équipe'}
+        </button>
+      </div>
+
+      {/* Gestion des membres pré-enregistrés */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <BookUser className="h-5 w-5 text-sky-500" /> Membres pré-enregistrés
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Renseignez ici la liste des techniciens une seule fois. Ils seront ensuite cochables pour créer vos équipes.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex gap-2 flex-1 min-w-[260px]">
+            <input
+              value={memberInput}
+              onChange={(e) => setMemberInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleBulkAdd()
+                }
+              }}
+              placeholder="Ajouter des membres (séparés par des virgules)"
+              className="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+            <button
+              onClick={handleBulkAdd}
+              className="bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 text-sm"
+            >
+              Ajouter
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 content-start">
+            {members.length === 0 && (
+              <span className="text-sm text-slate-400 italic">Aucun membre pré-enregistré.</span>
+            )}
+            {members.map((m) => (
+              <span key={m} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 rounded-full pl-3 pr-1.5 py-1 text-sm">
+                {m}
+                <button onClick={() => removeMember(m)} className="text-slate-400 hover:text-red-600">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {showAdd && (
+        <div className="bg-white rounded-xl shadow p-6 max-w-md">
+          <h2 className="text-lg font-semibold mb-4">Créer une équipe</h2>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Nom de l'équipe</label>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Ex: Équipe mécanique matin"
+            className="w-full border border-slate-300 rounded-md px-3 py-2 mb-4"
+          />
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Membres (cochez les noms pré-enregistrés)
+          </label>
+          {availableMembers.length === 0 && (
+            <p className="text-sm text-amber-600 mb-3">
+              Aucun membre pré-enregistré disponible. Ajoutez-en dans le panneau ci-dessus, ou retirez d'abord les membres déjà affectés.
+            </p>
+          )}
+          <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1 mb-4">
+            {availableMembers.map((m) => {
+              const checked = selected.includes(m)
+              return (
+                <label key={m} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSelected(m)}
+                    className="h-4 w-4 accent-sky-600"
+                  />
+                  {m}
+                </label>
+              )
+            })}
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={!newName.trim() || selected.length === 0}
+            className="w-full bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50"
+          >
+            Créer l'équipe ({selected.length} membre{selected.length > 1 ? 's' : ''})
+          </button>
+        </div>
+      )}
+
+      {teams.length === 0 && !showAdd && (
+        <div className="bg-white rounded-xl shadow p-10 text-center text-slate-500">
+          <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+          Aucune équipe pour l'instant. Créez votre première équipe.
+        </div>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {teams.map((team, idx) => (
+          <div key={team.id} className="bg-white rounded-xl shadow overflow-hidden">
+            <div
+              className="px-5 py-3 flex items-center justify-between"
+              style={{ backgroundColor: defaultColors[idx % defaultColors.length] }}
+            >
+              <div className="flex items-center gap-2 text-white">
+                <UserPlus className="h-5 w-5" />
+                <h3 className="font-bold">{team.name}</h3>
+              </div>
+              <button
+                onClick={() => removeTeam(team.id)}
+                className="text-white/80 hover:text-white"
+                title="Supprimer l'équipe"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-slate-600">
+                  <span className="font-semibold">{team.members.length}</span> membre(s)
+                </span>
+                <span className="text-sm text-slate-600">
+                  <span className="font-semibold">{taskCountByTeam(team.id)}</span> tâche(s) assignée(s)
+                </span>
+              </div>
+
+              <ul className="space-y-1 mb-4">
+                {team.members.length === 0 && (
+                  <li className="text-sm text-slate-400 italic">Aucun membre</li>
+                )}
+                {team.members.map((member, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-1.5 text-sm"
+                  >
+                    <span>{member}</span>
+                    <button
+                      onClick={() => removeFromTeam(team.id, member)}
+                      className="text-slate-400 hover:text-red-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {availableForTeam(team).length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Ajouter depuis les pré-enregistrés :</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableForTeam(team).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => addToTeam(team.id, m)}
+                        className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs hover:bg-sky-100 hover:text-sky-700"
+                      >
+                        + {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const defaultColors = ['#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#14b8a6']

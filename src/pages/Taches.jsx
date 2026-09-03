@@ -1,0 +1,275 @@
+import { useMemo, useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { getZoneColor, getCategoryColor } from '../utils/helpers'
+import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+
+export default function Taches() {
+  const { tasks, teams, assignments, removeTask, removeTasksByBlock } = useApp()
+  const [filter, setFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [selectedBlocks, setSelectedBlocks] = useState([])
+  const [collapsedZones, setCollapsedZones] = useState([])
+
+  const toggleZone = (zone) => {
+    setCollapsedZones((prev) =>
+      prev.includes(zone) ? prev.filter((z) => z !== zone) : [...prev, zone]
+    )
+  }
+
+  const zones = useMemo(() => {
+    return [...new Set(tasks.map((t) => t.workArea).filter(Boolean))].sort()
+  }, [tasks])
+
+  const blocks = useMemo(() => {
+    return [...new Set(tasks.map((t) => t.taskType).filter(Boolean))].sort()
+  }, [tasks])
+
+  const statuses = useMemo(() => [...new Set(tasks.map((t) => t.mtxStatus).filter(Boolean))], [tasks])
+
+  // hiddenBlocks = blocs masqués. Vide => tout affiché.
+  const toggleBlock = (block) => {
+    setSelectedBlocks((prev) =>
+      prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
+    )
+  }
+
+  const selectAll = () => setSelectedBlocks([])
+  const selectNone = () => setSelectedBlocks([...blocks])
+
+  const shownBlocks = blocks.filter((b) => !selectedBlocks.includes(b))
+
+  const filtered = useMemo(() => {
+    const isAllBlocks = shownBlocks.length === blocks.length || blocks.length === 0
+    const visibleSet = isAllBlocks ? null : new Set(shownBlocks)
+    return tasks.filter((t) => {
+      if (visibleSet && !visibleSet.has(t.taskType)) return false
+      const matchStatus = statusFilter === 'all' || t.mtxStatus === statusFilter
+      const q = filter.toLowerCase()
+      const matchText =
+        !q ||
+        t.description?.toLowerCase().includes(q) ||
+        t.workArea?.toLowerCase().includes(q) ||
+        t.skills?.toLowerCase().includes(q) ||
+        t.registration?.toLowerCase().includes(q)
+      return matchStatus && matchText
+    })
+  }, [tasks, filter, statusFilter, shownBlocks, blocks])
+
+  const groupedByZone = useMemo(() => {
+    const groups = {}
+    filtered.forEach((t) => {
+      const zone = t.workArea || 'Autre'
+      if (!groups[zone]) groups[zone] = []
+      groups[zone].push(t)
+    })
+    return groups
+  }, [filtered])
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Tâches par zone</h1>
+          <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Rechercher..."
+              className="border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm w-52"
+            />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="all">Tous statuts</option>
+            {statuses.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Filtre multi-blocs */}
+      {blocks.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-700">Filtrer par bloc</h2>
+            <div className="flex gap-2 text-xs">
+              <button onClick={selectAll} className="text-sky-600 hover:underline">Tout afficher</button>
+              <span className="text-slate-300">|</span>
+              <button onClick={selectNone} className="text-slate-500 hover:underline">Tout masquer</button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {blocks.map((block) => {
+              const hidden = selectedBlocks.includes(block)
+              const active = !hidden
+              const color = getCategoryColor(block)
+              const count = tasks.filter((t) => t.taskType === block).length
+              return (
+                <div key={block} className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggleBlock(block)}
+                    className="px-3 py-1.5 rounded-full text-sm font-semibold transition-all border-2"
+                    style={{
+                      backgroundColor: active ? color : 'transparent',
+                      borderColor: color,
+                      color: active ? '#fff' : color,
+                    }}
+                  >
+                    {block} ({count})
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Supprimer tout le bloc ${block} (${count} tâches) ?`)) {
+                        removeTasksByBlock(block)
+                      }
+                    }}
+                    className="text-slate-400 hover:text-red-600 transition-colors"
+                    title={`Supprimer le bloc ${block}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )
+            })}
+            {selectedBlocks.length > 0 && (
+              <span className="text-xs text-slate-400 self-center">
+                Affichage : {filtered.length} tâches
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {Object.keys(groupedByZone).length === 0 && (
+        <div className="bg-white rounded-xl shadow p-10 text-center text-slate-500">
+          Aucune tâche trouvée pour les critères sélectionnés.
+        </div>
+      )}
+
+      {Object.entries(groupedByZone)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([zone, zoneTasks]) => {
+          const zoneColor = getZoneColor(zone, zones)
+          const assignedTeams = teams.filter((t) =>
+            zoneTasks.some((task) => assignments[task.id] === t.id)
+          )
+          const memberNames = [...new Set(assignedTeams.flatMap((t) => t.members))]
+          const collapsed = collapsedZones.includes(zone)
+          return (
+            <div key={zone} className="bg-white rounded-xl shadow overflow-hidden">
+              <div className="px-5 py-3 flex items-center justify-between flex-wrap gap-2" style={{ backgroundColor: zoneColor }}>
+                <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleZone(zone)}>
+                  {collapsed ? (
+                    <ChevronRight className="h-6 w-6 text-white" />
+                  ) : (
+                    <ChevronDown className="h-6 w-6 text-white" />
+                  )}
+                  <div>
+                    <h2 className="font-bold text-white text-lg">
+                      {zone}{' '}
+                      <span className="font-normal opacity-80">({zoneTasks.length})</span>
+                    </h2>
+                    {memberNames.length > 0 && (
+                      <p className="text-white font-bold text-sm mt-0.5">
+                        Membres : {memberNames.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {[...new Set(zoneTasks.map((t) => t.taskType).filter(Boolean))].map((blk) => {
+                    const n = zoneTasks.filter((t) => t.taskType === blk).length
+                    return (
+                      <span key={blk} className="bg-white/25 px-2 py-0.5 rounded-full text-xs font-semibold text-white">
+                        {blk} · {n}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+              {!collapsed && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left bg-slate-50">
+                      <th className="px-4 py-2 border-b">N°</th>
+                      <th className="px-4 py-2 border-b">Tâche</th>
+                      <th className="px-4 py-2 border-b">Bloc</th>
+                      <th className="px-4 py-2 border-b">Skills</th>
+                      <th className="px-4 py-2 border-b">TRFX</th>
+                      <th className="px-4 py-2 border-b">Statut</th>
+                      <th className="px-4 py-2 border-b">Appareil</th>
+                      <th className="px-4 py-2 border-b">Équipe</th>
+                      <th className="px-4 py-2 border-b"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {zoneTasks.map((task) => {
+                      const teamId = assignments[task.id]
+                      const team = teams.find((t) => t.id === teamId)
+                      return (
+                        <tr key={task.id} className="border-b hover:bg-slate-50">
+                          <td className="px-4 py-2 font-bold text-slate-500">{task.seq || '-'}</td>
+                          <td className="px-4 py-2 font-medium max-w-md" title={task.description}>
+                            {task.description}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
+                              {task.taskType || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-xs">{task.skills || '-'}</td>
+                          <td className="px-4 py-2 font-mono font-bold text-xs">{task.taskBarcode || '-'}</td>
+                          <td className="px-4 py-2">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                task.mtxStatus === 'ACTV'
+                                  ? 'bg-green-100 text-green-700'
+                                  : task.mtxStatus === 'PAUSE'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {task.mtxStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">{task.registration || '-'}</td>
+                          <td className="px-4 py-2">
+                            {team ? (
+                              <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                {team.name}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Non assignée</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Supprimer cette tâche ?')) {
+                                  removeTask(task.id)
+                                }
+                              }}
+                              className="text-slate-400 hover:text-red-600"
+                              title="Supprimer la tâche"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              )}
+            </div>
+          )
+        })}
+    </div>
+  )
+}
