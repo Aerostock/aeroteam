@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Plane, LogOut } from 'lucide-react'
+import { Plane, LogOut, Trash2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const navItems = [
@@ -12,12 +12,20 @@ const navItems = [
 ]
 
 export default function Layout({ children }) {
-  const { activeProfile, disconnect } = useApp()
+  const { activeProfile, disconnect, deleteProfile } = useApp()
 
   const switchProfile = () => {
     if (window.confirm(`Quitter le profil « ${activeProfile?.name} » ? (les données sont sauvegardées dans le cloud)`)) {
       disconnect()
     }
+  }
+
+  const handleDelete = async () => {
+    const profile = activeProfile
+    if (!profile) return
+    if (!window.confirm(`Supprimer définitivement le profil « ${profile.name} » ?`)) return
+    if (!window.confirm(`⚠️ Cette action est IRREVERSIBLE : toutes les données du profil « ${profile.name} » (tâches, équipes, affectations...) seront effacées du cloud.\n\nVoulez-vous vraiment continuer ?`)) return
+    await deleteProfile(profile.code)
   }
 
   return (
@@ -56,6 +64,13 @@ export default function Layout({ children }) {
                 <p className="text-[10px] sm:text-xs text-slate-400 truncate max-w-[24vw] sm:max-w-none">✈ {activeProfile.aircraft}</p>
               )}
             </div>
+            <button
+              onClick={handleDelete}
+              className="text-red-300 hover:text-red-400 hover:bg-red-900/30 p-2 rounded-md"
+              title="Supprimer le profil"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
             <button
               onClick={switchProfile}
               className="text-slate-300 hover:text-white hover:bg-slate-800 p-2 rounded-md"
