@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { UserPlus, Users, Trash2, Plus, X, BookUser } from 'lucide-react'
+import { UserPlus, Users, Trash2, Plus, X, BookUser, Upload } from 'lucide-react'
 
 export default function Equipes() {
   const {
@@ -43,6 +43,22 @@ export default function Equipes() {
     if (names.length === 0) return
     addMembers(names)
     setMemberInput('')
+  }
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const content = String(reader.result || '')
+      const names = content
+        .split(/\r\n|\r|\n|,|;|\t/)
+        .map((n) => n.trim())
+        .filter(Boolean)
+      if (names.length) addMembers(names)
+      e.target.value = ''
+    }
+    reader.readAsText(file)
   }
 
   // Membres pré-enregistrés pas encore affectés à cette équipe
@@ -105,6 +121,19 @@ export default function Equipes() {
             >
               Ajouter
             </button>
+            <label
+              className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm cursor-pointer"
+              title="Charger une liste de membres depuis un fichier (.txt, .csv)"
+            >
+              <Upload className="h-4 w-4" />
+              Charger un fichier
+              <input
+                type="file"
+                accept=".txt,.csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
           </div>
           <div className="flex flex-wrap gap-1.5 content-start">
             {members.length === 0 && (
