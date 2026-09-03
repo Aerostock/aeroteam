@@ -69,7 +69,7 @@ export default function Taches() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Tâches par zone</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Tâches par zone</h1>
           <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -79,7 +79,7 @@ export default function Taches() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Rechercher..."
-              className="border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm w-52"
+              className="border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm w-40 sm:w-52"
             />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-300 rounded-md px-3 py-2 text-sm">
@@ -161,15 +161,15 @@ export default function Taches() {
           const collapsed = collapsedZones.includes(zone)
           return (
             <div key={zone} className="bg-white rounded-xl shadow overflow-hidden">
-              <div className="px-5 py-3 flex items-center justify-between flex-wrap gap-2" style={{ backgroundColor: zoneColor }}>
+              <div className="px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between flex-wrap gap-2" style={{ backgroundColor: zoneColor }}>
                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleZone(zone)}>
                   {collapsed ? (
-                    <ChevronRight className="h-6 w-6 text-white" />
+                    <ChevronRight className="h-5 sm:h-6 w-5 sm:w-6 text-white" />
                   ) : (
-                    <ChevronDown className="h-6 w-6 text-white" />
+                    <ChevronDown className="h-5 sm:h-6 w-5 sm:w-6 text-white" />
                   )}
                   <div>
-                    <h2 className="font-bold text-white text-lg">
+                    <h2 className="font-bold text-white text-base sm:text-lg">
                       {zone}{' '}
                       <span className="font-normal opacity-80">({zoneTasks.length})</span>
                     </h2>
@@ -193,7 +193,7 @@ export default function Taches() {
               </div>
               {!collapsed && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="text-left bg-slate-50">
                       <th className="px-4 py-2 border-b">N°</th>

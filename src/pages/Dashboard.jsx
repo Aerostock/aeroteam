@@ -116,11 +116,11 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Tableau de bord</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Tableau de bord</h1>
         <p className="text-slate-600 mt-1">Vue d'ensemble du workpackage</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard icon={<ClipboardList className="h-6 w-6" />} label="Tâches totales" value={stats.total} color="bg-sky-50 text-sky-600" />
         <StatCard icon={<CheckCircle2 className="h-6 w-6" />} label="Tâches assignées" value={stats.assigned} color="bg-green-50 text-green-600" />
         <StatCard icon={<AlertTriangle className="h-6 w-6" />} label="Non assignées" value={stats.unassigned} color="bg-amber-50 text-amber-600" />
@@ -128,7 +128,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Plane className="h-5 w-5 text-sky-500" /> Répartition par bloc
           </h2>
@@ -158,7 +158,7 @@ export default function Dashboard() {
         </div>
 
         {allUnassigned.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold">À traiter (non assignées)</h2>
               <span className="text-sm text-slate-500">{allUnassigned.length} tâche(s)</span>
@@ -236,12 +236,12 @@ export default function Dashboard() {
       </div>
 
       {teams.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-500" /> Récap détaillé de la charge par équipe
           </h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="text-left bg-slate-50 border-b">
                   <th className="px-4 py-2 font-semibold text-slate-700">Équipe</th>
@@ -334,7 +334,8 @@ export default function Dashboard() {
                 <p className="text-slate-500">Aucune tâche assignée à cette équipe.</p>
               )}
               {selectedTeamTasks.length > 0 && (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[520px]">
                   <thead>
                     <tr className="text-left bg-slate-100 rounded">
                       <th className="px-3 py-2 font-semibold text-slate-700">TRFX</th>
@@ -378,6 +379,7 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
               )}
             </div>
           </div>
@@ -389,10 +391,10 @@ export default function Dashboard() {
 
 function StatCard({ icon, label, value, color }) {
   return (
-    <div className="bg-white rounded-xl shadow p-5">
-      <div className={`inline-flex p-2 rounded-lg ${color}`}>{icon}</div>
-      <div className="mt-3 text-3xl font-bold text-slate-900">{value}</div>
-      <div className="text-sm text-slate-500">{label}</div>
+    <div className="bg-white rounded-xl shadow p-3 sm:p-5">
+      <div className={`inline-flex p-1.5 sm:p-2 rounded-lg ${color}`}>{icon}</div>
+      <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold text-slate-900">{value}</div>
+      <div className="text-xs sm:text-sm text-slate-500 truncate">{label}</div>
     </div>
   )
 }

@@ -10,14 +10,14 @@ export default function Export() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Export & Sauvegarde</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Export & Sauvegarde</h1>
         <p className="text-slate-600 mt-1">
           Téléchargez votre planning, gérez vos données.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <div className="inline-flex p-2 rounded-lg bg-green-50 text-green-600 mb-3">
             <FileSpreadsheet className="h-6 w-6" />
           </div>
@@ -34,7 +34,7 @@ export default function Export() {
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <div className="inline-flex p-2 rounded-lg bg-sky-50 text-sky-600 mb-3">
             <FileJson className="h-6 w-6" />
           </div>
@@ -53,7 +53,7 @@ export default function Export() {
       </div>
 
       {/* Résumé avant export */}
-      <div className="bg-white rounded-xl shadow p-6">
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6">
         <h2 className="text-xl font-semibold mb-4">Résumé du planning</h2>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
           <Summary label="Tâches" value={tasks.length} />

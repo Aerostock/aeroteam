@@ -79,7 +79,7 @@ export default function Equipes() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestion des équipes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Gestion des équipes</h1>
           <p className="text-slate-600 mt-1">
             {teams.length} équipe(s) — les membres sont pré-enregistrés et cochés pour composer les équipes
           </p>
@@ -94,7 +94,7 @@ export default function Equipes() {
       </div>
 
       {/* Gestion des membres pré-enregistrés */}
-      <div className="bg-white rounded-xl shadow p-6">
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6">
         <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
           <BookUser className="h-5 w-5 text-sky-500" /> Membres pré-enregistrés
         </h2>
@@ -152,7 +152,7 @@ export default function Equipes() {
       </div>
 
       {showAdd && (
-        <div className="bg-white rounded-xl shadow p-6 max-w-md">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-md">
           <h2 className="text-lg font-semibold mb-4">Créer une équipe</h2>
           <label className="block text-sm font-medium text-slate-700 mb-1">Nom de l'équipe</label>
           <input

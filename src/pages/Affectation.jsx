@@ -111,7 +111,7 @@ export default function Affectation() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Affectation des tâches</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Affectation des tâches</h1>
         <p className="text-slate-600 mt-1">
           Affectez par <strong>bloc complet</strong> (menu en haut de chaque bloc) ou <strong>ligne par ligne</strong>. Glissez-déposez également possible.
         </p>

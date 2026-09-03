@@ -50,10 +50,10 @@ export default function Layout({ children }) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="text-right leading-tight">
-              <p className="text-xs text-slate-400">Profil</p>
-              <p className="text-sm font-semibold text-sky-300">{activeProfile?.name}</p>
+              <p className="text-[10px] sm:text-xs text-slate-400">Profil</p>
+              <p className="text-xs sm:text-sm font-semibold text-sky-300 max-w-[24vw] sm:max-w-none truncate">{activeProfile?.name}</p>
               {activeProfile?.aircraft && (
-                <p className="text-xs text-slate-400">✈ {activeProfile.aircraft}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 truncate max-w-[24vw] sm:max-w-none">✈ {activeProfile.aircraft}</p>
               )}
             </div>
             <button
@@ -61,7 +61,7 @@ export default function Layout({ children }) {
               className="text-slate-300 hover:text-white hover:bg-slate-800 p-2 rounded-md"
               title="Changer de profil"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function Layout({ children }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm whitespace-nowrap font-medium ${
+                `px-3 py-2 rounded-md text-sm whitespace-nowrap font-medium ${
                   isActive
                     ? 'bg-sky-500 text-white'
                     : 'text-slate-300 hover:bg-slate-800'

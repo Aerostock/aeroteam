@@ -64,7 +64,7 @@ export default function ImportExcel() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Importer vos tâches</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Importer vos tâches</h1>
         <p className="text-slate-600 mt-1">
           Chargez votre Workpackage Report. Les tâches sont filtrées et classées automatiquement.
         </p>
@@ -159,7 +159,7 @@ export default function ImportExcel() {
           )}
 
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[720px]">
               <thead className="sticky top-0 bg-slate-50">
                 <tr className="text-left">
                   <th className="px-4 py-2 border-b">N°</th>
@@ -217,7 +217,7 @@ export default function ImportExcel() {
       )}
 
       {tasks.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Tâches enregistrées ({tasks.length})</h2>
             <div className="flex gap-2 flex-wrap">
