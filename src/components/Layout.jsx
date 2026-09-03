@@ -65,18 +65,18 @@ export default function Layout({ children }) {
               )}
             </div>
             <button
-              onClick={handleDelete}
-              className="text-red-300 hover:text-red-400 hover:bg-red-900/30 p-2 rounded-md"
-              title="Supprimer le profil"
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-            <button
               onClick={switchProfile}
               className="text-slate-300 hover:text-white hover:bg-slate-800 p-2 rounded-md"
               title="Changer de profil"
             >
               <LogOut className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="text-red-300 hover:text-red-400 hover:bg-red-900/30 p-2 rounded-md"
+              title="Supprimer le profil"
+            >
+              <Trash2 className="h-5 w-5" />
             </button>
           </div>
         </div>
