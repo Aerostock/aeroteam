@@ -39,7 +39,7 @@ export default function ProfileSelector() {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
         <div className="flex items-center gap-3 mb-2">
           <Plane className="h-8 w-8 text-sky-500" />
-          <h1 className="text-2xl font-bold text-slate-900">Maintenance Aviation</h1>
+          <h1 className="text-2xl font-bold text-slate-900">AeroTeam</h1>
         </div>
         <p className="text-slate-500 mb-6">
           Entrez votre <strong className="text-slate-700">code personnel</strong> pour retrouver votre profil et vos données, sur n'importe quel appareil.

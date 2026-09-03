@@ -34,7 +34,7 @@ export default function Layout({ children }) {
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Plane className="h-7 w-7 text-sky-400" />
-            <span className="text-xl font-bold">Maintenance Aviation</span>
+            <span className="text-xl font-bold">AeroTeam</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden lg:flex space-x-1">
