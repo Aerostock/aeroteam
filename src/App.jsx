@@ -10,7 +10,15 @@ import Affectation from './pages/Affectation'
 import Export from './pages/Export'
 
 function AppContent() {
-  const { activeProfile } = useApp()
+  const { activeProfile, loading, error } = useApp()
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center gap-3">
+        <p className="text-slate-500">Chargement…</p>
+        {error && <p className="text-sm text-red-600 max-w-md text-center">{error}</p>}
+      </div>
+    )
+  }
   if (!activeProfile) return <ProfileSelector />
   return (
     <Layout>

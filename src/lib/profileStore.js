@@ -1,0 +1,56 @@
+import { supabase } from './supabase'
+
+// Gère l'accès aux profils via Supabase (fonctions RPC).
+// Chaque profil est identifié par un CODE secret qui sert de clé d'accès.
+
+export async function createProfile(code, name, aircraft) {
+  const { data, error } = await supabase.rpc('create_profile', {
+    p_code: code,
+    p_name: name,
+    p_aircraft: aircraft,
+  })
+  if (error) throw error
+  if (data?.error === 'code_exists') {
+    throw new Error('code_exists')
+  }
+  return data
+}
+
+export async function getProfile(code) {
+  const { data, error } = await supabase.rpc('get_profile', { p_code: code })
+  if (error) throw error
+  if (data?.error === 'not_found') return null
+  return data
+}
+
+export async function profileExists(code) {
+  const { data, error } = await supabase.rpc('profile_exists', { p_code: code })
+  if (error) throw error
+  return !!data
+}
+
+export async function saveProfileData(code, dataObj) {
+  const { data, error } = await supabase.rpc('save_profile_data', {
+    p_code: code,
+    p_data: dataObj,
+  })
+  if (error) throw error
+  if (data?.error === 'not_found') throw new Error('not_found')
+  return data
+}
+
+export async function updateProfileMeta(code, name, aircraft) {
+  const { data, error } = await supabase.rpc('update_profile_meta', {
+    p_code: code,
+    p_name: name,
+    p_aircraft: aircraft,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function deleteProfile(code) {
+  const { data, error } = await supabase.rpc('delete_profile', { p_code: code })
+  if (error) throw error
+  return !!data
+}

@@ -1,20 +1,37 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { Plane, Plus, Trash2, LogIn } from 'lucide-react'
+import { Plane, Plus, LogIn, KeyRound, ShieldCheck } from 'lucide-react'
 
 export default function ProfileSelector() {
-  const { profiles, setActiveProfile, createProfile, deleteProfile } = useApp()
-  const [name, setName] = useState('')
-  const [aircraft, setAircraft] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
+  const { createProfile, connectProfile } = useApp()
 
-  const handleCreate = () => {
-    if (!name.trim()) return
-    const id = createProfile(name, aircraft)
-    setActiveProfile(id)
-    setShowCreate(false)
-    setName('')
-    setAircraft('')
+  // Connexion
+  const [code, setCode] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState('')
+
+  // Création
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newAircraft, setNewAircraft] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+
+  const handleConnect = async () => {
+    setConnecting(true)
+    setConnectError('')
+    const res = await connectProfile(code)
+    if (!res.ok) setConnectError(res.error)
+    setConnecting(false)
+  }
+
+  const handleCreate = async () => {
+    setCreating(true)
+    setCreateError('')
+    const res = await createProfile({ code: newCode, name: newName, aircraft: newAircraft })
+    if (!res.ok) setCreateError(res.error)
+    setCreating(false)
   }
 
   return (
@@ -25,80 +42,73 @@ export default function ProfileSelector() {
           <h1 className="text-2xl font-bold text-slate-900">Maintenance Aviation</h1>
         </div>
         <p className="text-slate-500 mb-6">
-          Choisissez votre profil pour travailler sur votre avion. Chaque profil (leader) a ses propres données isolées.
+          Entrez votre <strong className="text-slate-700">code personnel</strong> pour retrouver votre profil et vos données, sur n'importe quel appareil.
         </p>
 
-        {profiles.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
-            <Plane className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-            Aucun profil pour l'instant. Créez-en un pour commencer.
-          </div>
-        )}
-
-        <div className="space-y-2 mb-4">
-          {profiles.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between gap-2 border border-slate-200 rounded-xl px-4 py-3 hover:border-sky-400 hover:bg-sky-50 transition-colors"
-            >
-              <button
-                onClick={() => setActiveProfile(p.id)}
-                className="flex-1 text-left flex items-center gap-3"
-              >
-                <Plane className="h-5 w-5 text-sky-500" />
-                <div>
-                  <p className="font-semibold text-slate-800">{p.name}</p>
-                  {p.aircraft && <p className="text-sm text-slate-500">✈ {p.aircraft}</p>}
-                </div>
-              </button>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setActiveProfile(p.id)}
-                  className="text-xs bg-sky-600 text-white px-3 py-1.5 rounded-md hover:bg-sky-700 flex items-center gap-1"
-                >
-                  <LogIn className="h-3.5 w-3.5" /> Ouvrir
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Supprimer le profil « ${p.name} » et toutes ses données ?`)) {
-                      deleteProfile(p.id)
-                    }
-                  }}
-                  className="text-slate-400 hover:text-red-600 p-1.5"
-                  title="Supprimer le profil"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+        {/* Connexion */}
+        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-sky-500" /> Se connecter à mon profil
+          </h2>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+            placeholder="Votre code personnel"
+            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
+            autoFocus
+          />
+          {connectError && <p className="text-sm text-red-600">{connectError}</p>}
+          <button
+            onClick={handleConnect}
+            disabled={connecting || !code.trim()}
+            className="w-full bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <LogIn className="h-4 w-4" /> {connecting ? 'Connexion…' : 'Se connecter'}
+          </button>
         </div>
 
+        {/* Création */}
         {showCreate ? (
-          <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-            <h2 className="font-semibold text-slate-800">Créer un nouveau profil</h2>
+          <div className="border border-slate-200 rounded-xl p-4 space-y-3 mt-4">
+            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-sky-500" /> Créer un nouveau profil
+            </h2>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
               placeholder="Nom du profil (ex: Leader 1)"
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
             />
             <input
-              value={aircraft}
-              onChange={(e) => setAircraft(e.target.value)}
+              value={newAircraft}
+              onChange={(e) => setNewAircraft(e.target.value)}
               placeholder="Avion / immatriculation (ex: F-GKXT)"
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
             />
+            <input
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value)}
+              placeholder="Choisissez votre code personnel (ex: LEADER-123)"
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
+            />
+            <p className="text-xs text-slate-500">
+              Ce code est votre clé d'accès: gardez-le précieusement, il vous permet de retrouver vos données sur n'importe quel appareil.
+            </p>
+            {createError && <p className="text-sm text-red-600">{createError}</p>}
             <div className="flex gap-2">
               <button
                 onClick={handleCreate}
-                disabled={!name.trim()}
+                disabled={creating || !newName.trim() || !newCode.trim()}
                 className="flex-1 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
               >
-                Créer et ouvrir
+                {creating ? 'Création…' : 'Créer et ouvrir'}
               </button>
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => {
+                  setShowCreate(false)
+                  setCreateError('')
+                }}
                 className="px-4 py-2 rounded-md border border-slate-300 text-sm hover:bg-slate-50"
               >
                 Annuler
@@ -108,9 +118,9 @@ export default function ProfileSelector() {
         ) : (
           <button
             onClick={() => setShowCreate(true)}
-            className="w-full border-2 border-dashed border-slate-300 text-slate-500 px-4 py-3 rounded-xl hover:border-sky-400 hover:text-sky-600 flex items-center justify-center gap-2 text-sm font-semibold"
+            className="w-full border-2 border-dashed border-slate-300 text-slate-500 px-4 py-3 rounded-xl hover:border-sky-400 hover:text-sky-600 flex items-center justify-center gap-2 text-sm font-semibold mt-4"
           >
-            <Plus className="h-4 w-4" /> Nouveau profil
+            <Plus className="h-4 w-4" /> Nouveau profil / créer ma clé
           </button>
         )}
       </div>

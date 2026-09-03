@@ -12,11 +12,11 @@ const navItems = [
 ]
 
 export default function Layout({ children }) {
-  const { activeProfile, setActiveProfile } = useApp()
+  const { activeProfile, disconnect } = useApp()
 
   const switchProfile = () => {
-    if (window.confirm(`Quitter le profil « ${activeProfile?.name} » ? (les données sont sauvegardées)`)) {
-      setActiveProfile('')
+    if (window.confirm(`Quitter le profil « ${activeProfile?.name} » ? (les données sont sauvegardées dans le cloud)`)) {
+      disconnect()
     }
   }
 

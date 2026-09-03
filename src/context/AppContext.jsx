@@ -1,39 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import * as profileStore from '../lib/profileStore'
 
 const AppContext = createContext(null)
 
-const PROFILES_KEY = 'maintenance-app-profiles'
-const ACTIVE_KEY = 'maintenance-app-active-profile'
+const ACTIVE_CODE_KEY = 'maintenance-app-active-code'
 
-function dataKey(profileId) {
-  return `maintenance-app-data-${profileId}`
-}
-
-function loadProfiles() {
+function loadActiveCode() {
   try {
-    const raw = localStorage.getItem(PROFILES_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch (e) {
-    return []
-  }
-}
-
-function loadActive() {
-  try {
-    return localStorage.getItem(ACTIVE_KEY) || ''
+    return localStorage.getItem(ACTIVE_CODE_KEY) || ''
   } catch (e) {
     return ''
-  }
-}
-
-function loadData(profileId) {
-  if (!profileId) return null
-  try {
-    const raw = localStorage.getItem(dataKey(profileId))
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch (e) {
-    return null
   }
 }
 
@@ -52,81 +28,11 @@ function dedupeTasks(tasks) {
 
 const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [] }
 
-const MEMBERS_FILE = [
-  'Mr RAPHAEL ALEXIA',
-  'Mr FARID AYAD',
-  'Mr DOUNDOUJI BA',
-  'Mr KESHAV SHARMA BHUJOO',
-  'Mr CHARLES EKPIDI',
-  'Mr JOHNNY GOBLAS',
-  'Mme LOLA JEDOROWICZ',
-  'Mr LEE KHELILIFI',
-  'Mr ARTHUR LACHAUD',
-  'Mr LAURENT LAMBERT',
-  'Mr XAVIER LAURIER',
-  'Mr WILLIAM LEGER',
-  'Mr MATHIEU MICHOUX',
-  'Mr NICOLAS RAFFIN',
-  'Mr CORENTIN STROJNA',
-  'Mr BASILE MESSAN KOKOU ADJETEY-ADJEVI',
-  'Mr RICHARD BRULEY',
-  'Mme LEA DAMAGNEZ',
-  'Mr BRUNO DIAS',
-  'Mr CHARLY ELISE',
-  'Mr FABRICE FORESTIER',
-  'Mr JOEL GARCIA',
-  'Mr VINCENT LABARTHE',
-  'Mr THIBAULT LIGNOUX',
-  'Mr JONATHAN MIGUEL',
-  'Mr WALID OUKI',
-  'Mr OLIVIER PARIZOT',
-  'Mr STEEVEN PREVOST',
-  'Mr FABRICE SAUCE',
-  'Mr NICOLAS ZITTE',
-]
-
-// Migration unique : injecte les membres du fichier dans les profils EXISTANTS.
-// Le flag enregistre les IDs des profils DÉJÀ traités, afin que les FUTURS profils
-// ne soient pas concernés, tout en permettant de traiter des profils existants
-// même si aucun profil n'existait à un chargement précédent.
-const SEED_MEMBERS_FLAG = 'maintenance-app-seeded-members'
-
-function loadSeeded() {
-  try {
-    const raw = localStorage.getItem(SEED_MEMBERS_FLAG)
-    const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr : []
-  } catch (e) {
-    return []
-  }
-}
-
-function seedMembersOnce() {
-  const seeded = loadSeeded()
-  const profiles = loadProfiles()
-  const updated = [...seeded]
-  profiles.forEach((profile) => {
-    if (seeded.includes(profile.id)) return
-    const key = dataKey(profile.id)
-    let data = {}
-    try {
-      data = JSON.parse(localStorage.getItem(key) || '{}')
-    } catch (e) {
-      data = {}
-    }
-    const merged = [...new Set([...(data.members || []), ...MEMBERS_FILE])]
-    data.members = merged
-    localStorage.setItem(key, JSON.stringify(data))
-    updated.push(profile.id)
-  })
-  if (updated.length) {
-    localStorage.setItem(SEED_MEMBERS_FLAG, JSON.stringify(updated))
-  }
-}
-
 export function AppProvider({ children }) {
-  const [profiles, setProfiles] = useState(loadProfiles)
-  const [activeProfileId, setActiveProfileId] = useState(loadActive)
+  const [code, setCode] = useState(loadActiveCode)
+  const [activeProfile, setActiveProfile] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const [tasks, setTasks] = useState([])
   const [teams, setTeams] = useState([])
@@ -134,64 +40,130 @@ export function AppProvider({ children }) {
   const [members, setMembers] = useState([])
   const [loaded, setLoaded] = useState(false)
 
-  const activeProfile = profiles.find((p) => p.id === activeProfileId) || null
+  const saveTimer = useRef(null)
+  const isConnected = !!code && !!activeProfile
 
-  // Injection unique des membres dans les profils existants (au premier lancement uniquement)
+  // Charger le profil + ses données depuis Supabase quand le code change
   useEffect(() => {
-    seedMembersOnce()
+    if (!code) {
+      setActiveProfile(null)
+      setTasks([])
+      setTeams([])
+      setAssignments({})
+      setMembers([])
+      setLoaded(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setError('')
+
+    profileStore
+      .getProfile(code)
+      .then((profile) => {
+        if (cancelled) return
+        if (!profile) {
+          // Le code n'existe pas (profil supprimé sur le cloud) : on déconnecte
+          localStorage.removeItem(ACTIVE_CODE_KEY)
+          setCode('')
+          setActiveProfile(null)
+          setLoaded(false)
+          return
+        }
+        const data = profile.data || DEFAULT_EMPTY
+        setActiveProfile({ id: profile.id, code, name: profile.name, aircraft: profile.aircraft })
+        setTasks(dedupeTasks(data.tasks || []))
+        setTeams(data.teams || [])
+        setAssignments(data.assignments || {})
+        setMembers(data.members || [])
+        setLoaded(true)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError('Impossible de se connecter : ' + (err.message || 'erreur réseau'))
+        setLoaded(false)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [code])
+
+  // Sauvegarde des données dans Supabase (debounce) une fois chargées
+  useEffect(() => {
+    if (!isConnected || !loaded) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      profileStore
+        .saveProfileData(code, { tasks, teams, assignments, members })
+        .catch((err) => console.error('Sauvegarde Supabase échouée', err))
+    }, 600)
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [isConnected, loaded, code, tasks, teams, assignments, members])
+
+  const connectProfile = useCallback(async (profileCode) => {
+    const c = String(profileCode || '').trim()
+    if (!c) return { ok: false, error: 'Veuillez saisir un code.' }
+    const exists = await profileStore.profileExists(c)
+    if (!exists) return { ok: false, error: 'Aucun profil ne correspond à ce code.' }
+    localStorage.setItem(ACTIVE_CODE_KEY, c)
+    setCode(c)
+    return { ok: true }
   }, [])
 
-  // Charger les données du profil actif
-  useEffect(() => {
-    setLoaded(false)
+  const createProfile = useCallback(
+    async ({ code: profileCode, name, aircraft }) => {
+      const c = String(profileCode || '').trim()
+      if (!c) return { ok: false, error: 'Le code est obligatoire.' }
+      if (!name || !String(name).trim()) return { ok: false, error: 'Le nom du profil est obligatoire.' }
+      try {
+        await profileStore.createProfile(c, String(name).trim(), String(aircraft || '').trim())
+        localStorage.setItem(ACTIVE_CODE_KEY, c)
+        setCode(c)
+        return { ok: true }
+      } catch (err) {
+        if (err.message === 'code_exists') {
+          return { ok: false, error: 'Ce code est déjà utilisé. Choisissez un autre code.' }
+        }
+        return { ok: false, error: 'Échec de la création : ' + (err.message || 'erreur réseau') }
+      }
+    },
+    []
+  )
+
+  const disconnect = useCallback(() => {
+    localStorage.removeItem(ACTIVE_CODE_KEY)
+    setCode('')
+    setActiveProfile(null)
     setTasks([])
     setTeams([])
     setAssignments({})
     setMembers([])
-    const data = loadData(activeProfileId) || DEFAULT_EMPTY
-    setTasks(dedupeTasks(data.tasks || []))
-    setTeams(data.teams || [])
-    setAssignments(data.assignments || {})
-    setMembers(data.members || [])
-    setLoaded(true)
-  }, [activeProfileId])
-
-  // Sauvegarder les données du profil actif (uniquement une fois chargées)
-  useEffect(() => {
-    if (!activeProfileId || !loaded) return
-    localStorage.setItem(
-      dataKey(activeProfileId),
-      JSON.stringify({ tasks, teams, assignments, members })
-    )
-  }, [activeProfileId, tasks, teams, assignments, members, loaded])
-
-  const setActiveProfile = useCallback((id) => {
-    setActiveProfileId(id)
-    localStorage.setItem(ACTIVE_KEY, id)
+    setLoaded(false)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
   }, [])
 
-  const createProfile = useCallback((name, aircraft) => {
-    const id = `profile-${Date.now()}`
-    const newProfiles = [...profiles, { id, name: String(name).trim(), aircraft: String(aircraft).trim() }]
-    setProfiles(newProfiles)
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(newProfiles))
-    // initialise des données vides pour ce profil
-    localStorage.setItem(dataKey(id), JSON.stringify(DEFAULT_EMPTY))
-    return id
-  }, [profiles])
-
   const deleteProfile = useCallback(
-    (id) => {
-      const remaining = profiles.filter((p) => p.id !== id)
-      setProfiles(remaining)
-      localStorage.setItem(PROFILES_KEY, JSON.stringify(remaining))
-      localStorage.removeItem(dataKey(id))
-      if (activeProfileId === id) {
-        setActiveProfileId('')
-        localStorage.removeItem(ACTIVE_KEY)
+    async (profileCode) => {
+      const target = profileCode || code
+      if (!target) return { ok: false }
+      try {
+        await profileStore.deleteProfile(target)
+        if (isConnected && target === code) {
+          disconnect()
+        }
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: err.message }
       }
     },
-    [profiles, activeProfileId]
+    [code, isConnected, disconnect]
   )
 
   const addTasks = useCallback((newTasks) => {
@@ -269,10 +241,7 @@ export function AppProvider({ children }) {
     setTeams([])
     setAssignments({})
     setMembers([])
-    if (activeProfileId) {
-      localStorage.setItem(dataKey(activeProfileId), JSON.stringify(DEFAULT_EMPTY))
-    }
-  }, [activeProfileId])
+  }, [])
 
   const addMember = useCallback((name) => {
     const trimmed = String(name).trim()
@@ -302,8 +271,9 @@ export function AppProvider({ children }) {
 
   const value = {
     tasks, teams, assignments, members,
-    profiles, activeProfile, activeProfileId,
-    setActiveProfile, createProfile, deleteProfile,
+    activeProfile, code,
+    loading, error,
+    connectProfile, createProfile, disconnect, deleteProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
   }
