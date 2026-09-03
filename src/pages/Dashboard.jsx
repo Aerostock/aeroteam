@@ -12,6 +12,16 @@ import {
   X,
 } from 'lucide-react'
 
+function groupByZone(blockTasks) {
+  const groups = {}
+  blockTasks.forEach((t) => {
+    const zone = t.workArea || 'Autre'
+    if (!groups[zone]) groups[zone] = []
+    groups[zone].push(t)
+  })
+  return groups
+}
+
 export default function Dashboard() {
   const { tasks, teams, assignments } = useApp()
   const [selectedTeamId, setSelectedTeamId] = useState(null)
@@ -177,18 +187,44 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {blockExpanded && (
-                      <div className="divide-y divide-slate-100">
-                        {blockTasks.map((task) => (
-                          <div key={task.id} className="px-3 py-1.5 flex items-center gap-2 text-sm pl-8">
-                            <span className="w-10 shrink-0 font-bold text-slate-500">{task.seq || '—'}</span>
-                            <span className="flex-1 truncate text-slate-700" title={task.description}>
-                              {task.description}
-                            </span>
-                            {task.registration && (
-                              <span className="shrink-0 text-xs text-slate-400">✈ {task.registration}</span>
-                            )}
-                          </div>
-                        ))}
+                      <div className="space-y-2 p-2">
+                        {Object.entries(groupByZone(blockTasks))
+                          .sort((a, b) => a[0].localeCompare(b[0]))
+                          .map(([zone, zoneTasks]) => {
+                            const zoneColor = getZoneColor(zone, zones)
+                            return (
+                              <div key={zone} className="rounded-lg border overflow-hidden" style={{ borderColor: `${zoneColor}88`, borderWidth: 2 }}>
+                                <div
+                                  className="px-3 py-1.5 flex items-center justify-between"
+                                  style={{ backgroundColor: zoneColor }}
+                                >
+                                  <span className="text-sm font-bold text-white">📍 {zone}</span>
+                                  <span className="text-xs text-white/90">({zoneTasks.length})</span>
+                                </div>
+                                <div className="bg-white">
+                                  {zoneTasks.map((task, i) => (
+                                    <div
+                                      key={task.id}
+                                      className={`px-3 py-1.5 flex items-center gap-2 text-sm ${i > 0 ? 'border-t border-dashed border-slate-200' : ''}`}
+                                    >
+                                      <span className="w-10 shrink-0 font-bold text-slate-500">{task.seq || '—'}</span>
+                                      <span className="flex-1 truncate text-slate-700" title={task.description}>
+                                        {task.description}
+                                      </span>
+                                      {task.taskType && (
+                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${getCategoryColor(task.taskType)}22`, color: getCategoryColor(task.taskType) }}>
+                                          {task.taskType}
+                                        </span>
+                                      )}
+                                      {task.registration && (
+                                        <span className="shrink-0 text-xs text-slate-400">✈ {task.registration}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
                       </div>
                     )}
                   </div>
