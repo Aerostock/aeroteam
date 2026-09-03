@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useApp } from '../context/AppContext'
 import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor } from '../utils/helpers'
@@ -11,6 +11,12 @@ export default function Preparation() {
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [collapsed, setCollapsed] = useState([])
+
+  // Replie par défaut chaque nouveau bloc (tuiles fermées au chargement)
+  useEffect(() => {
+    setCollapsed((prev) => [...new Set([...prev, ...blocks])])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks.join('|')])
 
   const handleFile = useCallback((file) => {
     setError('')
