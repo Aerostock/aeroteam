@@ -673,13 +673,18 @@ export default function Preparation() {
             className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b-2 flex items-center justify-between gap-3 bg-slate-50 print:border-slate-300">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{printPocket.name}</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                  Pochette virtuelle · {printTasks.length} / {printPocket.taskIds.length} ligne(s)
-                  sélectionnée(s) · {new Date().toLocaleDateString('fr-FR')}
-                </p>
+            <div className="px-5 py-4 border-b-2 flex items-center justify-between gap-3 bg-slate-900 print:border-slate-600 print:bg-slate-900">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="bg-sky-500 text-white p-2 rounded-lg shrink-0">
+                  <FolderPlus className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{printPocket.name}</h1>
+                  <p className="text-sm text-slate-300 mt-0.5">
+                    Pochette virtuelle · {printTasks.length} / {printPocket.taskIds.length} ligne(s)
+                    sélectionnée(s) · {new Date().toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2 print:hidden">
                 <button
@@ -764,14 +769,18 @@ export default function Preparation() {
                   <div className="space-y-5">
                     {Object.keys(printByBlock).map((blk) => (
                       <div key={blk} className="print-pocket-block">
-                        <div
-                          className="px-3 py-2 rounded-t-md flex items-center justify-between text-white font-bold"
-                          style={{ backgroundColor: getCategoryColor(blk) }}
-                        >
-                          <span>
-                            Bloc {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s)
-                          </span>
-                        </div>
+<div
+  className="px-3 py-2 rounded-t-md flex items-center justify-between gap-2 flex-wrap text-white font-bold"
+  style={{ backgroundColor: getCategoryColor(blk) }}
+>
+  <span>
+    Bloc {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s)
+  </span>
+  <span className="inline-flex items-center gap-1.5 bg-white/25 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+    <FolderPlus className="h-3.5 w-3.5" />
+    {printPocket.name}
+  </span>
+</div>
                         <div className="border border-t-0 border-slate-200 rounded-b-md overflow-hidden">
                           {Object.keys(printByBlock[blk].zones).map((zone) => (
                             <div key={zone} className="print-pocket-zone">
