@@ -269,13 +269,6 @@ export default function Preparation() {
     return map
   }, [printTasks])
 
-  const printTotalHours = useMemo(() => {
-    return printTasks.reduce((sum, t) => {
-      const h = parseFloat(t.scheduledHours)
-      return sum + (isNaN(h) ? 0 : h)
-    }, 0)
-  }, [printTasks])
-
   const emptyPockets = pockets.filter((p) => p.taskIds.length === 0)
 
   return (
@@ -684,8 +677,7 @@ export default function Preparation() {
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{printPocket.name}</h2>
                 <p className="text-sm text-slate-500">
-                  {printTasks.length} / {printPocket.taskIds.length} ligne(s) sélectionnée(s) ·{' '}
-                  {formatHours(printTotalHours)} h
+                  {printTasks.length} / {printPocket.taskIds.length} ligne(s) sélectionnée(s)
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -709,7 +701,7 @@ export default function Preparation() {
               <h1 className="text-2xl font-bold text-slate-900">{printPocket.name}</h1>
               <p className="text-sm text-slate-500 mt-1">
                 Pochette virtuelle · {printTasks.length} tâche(s) sélectionnée(s) ·{' '}
-                {formatHours(printTotalHours)} h · {new Date().toLocaleDateString('fr-FR')}
+                {new Date().toLocaleDateString('fr-FR')}
               </p>
               {Object.keys(printByBlock).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -719,8 +711,7 @@ export default function Preparation() {
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white"
                       style={{ backgroundColor: getCategoryColor(blk) }}
                     >
-                      {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s) ·{' '}
-                      {formatHours(printByBlock[blk].totalHours)} h
+                      {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s)
                     </span>
                   ))}
                 </div>
@@ -775,7 +766,7 @@ export default function Preparation() {
                             <span className="text-sm font-semibold">{getCategoryLabel(blk)}</span>
                           </span>
                           <span className="text-xs text-slate-500">
-                            {printByBlock[blk].count} · {formatHours(printByBlock[blk].totalHours)} h
+                            {printByBlock[blk].count} tâche(s)
                           </span>
                         </button>
                       </li>
@@ -800,9 +791,6 @@ export default function Preparation() {
                           <span>
                             Bloc {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s)
                           </span>
-                          <span className="opacity-90 font-normal text-sm">
-                            {formatHours(printByBlock[blk].totalHours)} h
-                          </span>
                         </div>
                         <div className="border border-t-0 border-slate-200 rounded-b-md overflow-hidden">
                           {Object.keys(printByBlock[blk].zones).map((zone) => (
@@ -810,15 +798,6 @@ export default function Preparation() {
                               <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center justify-between gap-2">
                                 <span>
                                   {zone} <span className="font-normal text-slate-400 normal-case">({printByBlock[blk].zones[zone].length})</span>
-                                </span>
-                                <span className="font-semibold text-slate-500 normal-case">
-                                  {formatHours(
-                                    printByBlock[blk].zones[zone].reduce((sum, t) => {
-                                      const hh = parseFloat(t.scheduledHours)
-                                      return sum + (isNaN(hh) ? 0 : hh)
-                                    }, 0)
-                                  )}{' '}
-                                  h
                                 </span>
                               </div>
                               <table className="w-full text-sm">
@@ -840,9 +819,6 @@ export default function Preparation() {
                                       </td>
                                       <td className="px-3 py-1.5 font-mono text-xs text-slate-500 w-12">{t.seq || '-'}</td>
                                       <td className="px-3 py-1.5 text-slate-800">{t.description}</td>
-                                      <td className="px-3 py-1.5 text-right text-slate-700 w-14">
-                                        {t.scheduledHours ?? '—'}
-                                      </td>
                                       <td className="px-2 py-1.5 text-right w-8 print:hidden">
                                         <button
                                           onClick={() => removeTasksFromPocket(printPocket.id, [t.id])}
@@ -862,7 +838,7 @@ export default function Preparation() {
                       </div>
                     ))}
                     <div className="text-right text-sm font-semibold text-slate-700">
-                      Total : {printTasks.length} tâche(s) · {formatHours(printTotalHours)} h
+                      Total : {printTasks.length} tâche(s)
                     </div>
                   </div>
                 )}
