@@ -244,7 +244,7 @@ export function AppProvider({ children }) {
     setTasks([])
     setTeams([])
     setAssignments({})
-    setMembers([])
+    setPrepTasks([])
   }, [])
 
   const addPrepTasks = useCallback((newTasks) => {
