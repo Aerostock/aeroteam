@@ -2,15 +2,75 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useApp } from '../context/AppContext'
 import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor } from '../utils/helpers'
-import { Upload, FileSpreadsheet, Trash2, X, ChevronDown, ChevronRight, FolderClock } from 'lucide-react'
+import {
+  Upload,
+  FileSpreadsheet,
+  Trash2,
+  X,
+  ChevronDown,
+  ChevronRight,
+  FolderClock,
+  Plus,
+  FolderPlus,
+  Printer,
+  Pencil,
+  Check,
+} from 'lucide-react'
+
+const PRINT_STYLE_ID = 'aero-print-style'
+
+function injectPrintStyle() {
+  document.getElementById(PRINT_STYLE_ID)?.remove()
+  const style = document.createElement('style')
+  style.id = PRINT_STYLE_ID
+  style.innerHTML = `
+    @media print {
+      body * { visibility: hidden; }
+      .print-target, .print-target * { visibility: visible; }
+      .print-target {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-height: none;
+        overflow: visible;
+      }
+      .print-target [class*="max-h"], .print-target [class*="overflow"] {
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      .print-pocket-block { break-inside: avoid; page-break-inside: avoid; }
+      .print-hide { display: none !important; }
+    }
+  `
+  document.head.appendChild(style)
+}
 
 export default function Preparation() {
-  const { prepTasks, addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks } = useApp()
+  const {
+    prepTasks,
+    pockets,
+    addPrepTasks,
+    removePrepTask,
+    removePrepTasksByBlock,
+    clearPrepTasks,
+    addPocket,
+    renamePocket,
+    addTasksToPocket,
+    removeTasksFromPocket,
+    removePocket,
+  } = useApp()
+
   const fileInputRef = useRef(null)
   const [preview, setPreview] = useState([])
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [collapsed, setCollapsed] = useState([])
+  const [newPocketName, setNewPocketName] = useState('')
+  const [renameId, setRenameId] = useState(null)
+  const [renameText, setRenameText] = useState('')
+  const [printPocketId, setPrintPocketId] = useState(null)
+  const [selectedTasks, setSelectedTasks] = useState([])
 
   const handleFile = useCallback((file) => {
     setError('')
@@ -88,7 +148,114 @@ export default function Preparation() {
     return [...new Set(prepTasks.map((t) => t.workArea).filter(Boolean))].sort()
   }, [prepTasks])
 
+  const taskById = useMemo(() => {
+    const map = {}
+    prepTasks.forEach((t) => (map[t.id] = t))
+    return map
+  }, [prepTasks])
+
   const formatHours = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
+
+  // ---------- Pochettes ----------
+  const createPocket = () => {
+    const name = String(newPocketName || '').trim()
+    if (!name) return
+    addPocket(name)
+    setNewPocketName('')
+  }
+
+  const assignToPocket = (pocketId, taskIds) => {
+    if (!pocketId) return
+    addTasksToPocket(pocketId, taskIds)
+  }
+
+  const assignBlockToPocket = (pocketId, block) => {
+    const ids = prepTasks.filter((t) => (t.taskType || 'AUTRE') === block).map((t) => t.id)
+    assignToPocket(pocketId, ids)
+  }
+
+  const assignZoneToPocket = (pocketId, block, zone) => {
+    const ids = prepTasks
+      .filter((t) => (t.taskType || 'AUTRE') === block && (t.workArea || 'Sans zone') === zone)
+      .map((t) => t.id)
+    assignToPocket(pocketId, ids)
+  }
+
+  const pocketById = useMemo(() => {
+    const map = {}
+    pockets.forEach((p) => (map[p.id] = p))
+    return map
+  }, [pockets])
+
+  const pocketStats = useMemo(() => {
+    const map = {}
+    pockets.forEach((p) => {
+      let hours = 0
+      let missing = 0
+      p.taskIds.forEach((id) => {
+        const t = taskById[id]
+        if (!t) {
+          missing += 1
+          return
+        }
+        const h = parseFloat(t.scheduledHours)
+        if (!isNaN(h)) hours += h
+      })
+      map[p.id] = { count: p.taskIds.length, hours, missing }
+    })
+    return map
+  }, [pockets, taskById])
+
+  const openPrint = (pocketId) => {
+    const p = pocketById[pocketId]
+    if (!p) return
+    setSelectedTasks(p.taskIds)
+    setPrintPocketId(pocketId)
+  }
+
+  const handlePrint = () => {
+    injectPrintStyle()
+    // Ajour du timeout pour laisser la suppression du style prendre effet
+    setTimeout(() => window.print(), 0)
+  }
+
+  const printPocket = printPocketId ? pocketById[printPocketId] : null
+  const printTasks = useMemo(() => {
+    if (!printPocket) return []
+    return printPocket.taskIds
+      .filter((id) => selectedTasks.includes(id) && taskById[id])
+      .map((id) => taskById[id])
+  }, [printPocket, selectedTasks, taskById])
+
+  // Regrouper les tâches de la pochette à l'impression par bloc puis zone
+  const printByBlock = useMemo(() => {
+    const map = {}
+    printTasks.forEach((t) => {
+      const blk = t.taskType || 'AUTRE'
+      if (!map[blk]) map[blk] = { zones: {}, count: 0, totalHours: 0 }
+      const zone = t.workArea || 'Sans zone'
+      if (!map[blk].zones[zone]) map[blk].zones[zone] = []
+      map[blk].zones[zone].push(t)
+      map[blk].count += 1
+      const h = parseFloat(t.scheduledHours)
+      if (!isNaN(h)) map[blk].totalHours += h
+    })
+    Object.keys(map).forEach((blk) => {
+      map[blk].zones = Object.fromEntries(
+        Object.entries(map[blk].zones).sort((a, b) => a[0].localeCompare(b[0]))
+      )
+    })
+    return map
+  }, [printTasks])
+
+  const printTotalHours = useMemo(() => {
+    return printTasks.reduce((sum, t) => {
+      const h = parseFloat(t.scheduledHours)
+      return sum + (isNaN(h) ? 0 : h)
+    }, 0)
+  }, [printTasks])
+
+  const emptyPockets = pockets.filter((p) => p.taskIds.length === 0)
 
   return (
     <div className="space-y-6">
@@ -201,6 +368,123 @@ export default function Preparation() {
         </div>
       )}
 
+      {prepTasks.length > 0 && (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b bg-slate-50/50">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FolderPlus className="h-5 w-5 text-sky-600" />
+              Pochettes virtuelles
+            </h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Créez des pochettes et affectez-y des blocs, des zones ou des tâches. Une pochette peut
+              ensuite être imprimée.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={newPocketName}
+                onChange={(e) => setNewPocketName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createPocket()
+                }}
+                placeholder="Nom de la pochette (ex : Équipe mécanique après-midi)"
+                className="border border-slate-300 rounded-md px-3 py-2 text-sm flex-1 min-w-[220px]"
+              />
+              <button
+                onClick={createPocket}
+                className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 text-sm font-semibold"
+              >
+                <Plus className="h-4 w-4" /> Créer la pochette
+              </button>
+            </div>
+          </div>
+
+          {pockets.length === 0 ? (
+            <p className="px-4 sm:px-6 py-6 text-sm text-slate-500">
+              Aucune pochette pour le moment. Créez-en une ci-dessus, puis affectez des blocs ou des
+              tâches avec les menus déroulants des blocs / zones / lignes ci-dessous.
+            </p>
+          ) : (
+            <div className="grid gap-3 p-4 sm:p-5 sm:grid-cols-2 xl:grid-cols-3">
+              {pockets.map((p) => {
+                const st = pocketStats[p.id] || { count: 0, hours: 0 }
+                return (
+                  <div key={p.id} className="border border-slate-200 rounded-lg p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      {renameId === p.id ? (
+                        <input
+                          autoFocus
+                          value={renameText}
+                          onChange={(e) => setRenameText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              renamePocket(p.id, renameText)
+                              setRenameId(null)
+                            }
+                            if (e.key === 'Escape') setRenameId(null)
+                          }}
+                          className="border border-sky-400 rounded-md px-2 py-1 text-sm font-semibold flex-1"
+                        />
+                      ) : (
+                        <h3 className="font-semibold text-slate-900 leading-tight">{p.name}</h3>
+                      )}
+                      <button
+                        onClick={() => {
+                          setRenameId(renameId === p.id ? null : p.id)
+                          setRenameText(p.name)
+                        }}
+                        className="text-slate-400 hover:text-sky-600 p-1 rounded"
+                        title="Renommer la pochette"
+                      >
+                        {renameId === p.id ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                      <span className="px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full text-xs font-semibold">
+                        {st.count} tâche{st.count > 1 ? 's' : ''}
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">
+                        {formatHours(st.hours)} h
+                      </span>
+                      {st.missing > 0 && (
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-xs">
+                          {st.missing} supprimé{st.missing > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-auto flex items-center gap-2">
+                      <button
+                        onClick={() => openPrint(p.id)}
+                        className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-md hover:bg-slate-700 text-sm font-semibold"
+                        title="Afficher et imprimer la pochette"
+                      >
+                        <Printer className="h-4 w-4" /> Ouvrir / Imprimer
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Supprimer la pochette « ${p.name} » ?`)) {
+                            removePocket(p.id)
+                          }
+                        }}
+                        className="text-slate-400 hover:text-red-600 p-2 rounded border border-slate-200"
+                        title="Supprimer la pochette"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {emptyPockets.length > 0 && (
+            <p className="px-4 sm:px-6 pb-4 text-xs text-slate-400">
+              {emptyPockets.map((p) => p.name).join(' · ')} : pochette(s) vide(s) — affectez-y des
+              blocs ou des tâches.
+            </p>
+          )}
+        </div>
+      )}
+
       {blocks.length === 0 && preview.length === 0 && (
         <div className="bg-white rounded-xl shadow p-10 text-center text-slate-500">
           <FolderClock className="h-10 w-10 mx-auto text-slate-300 mb-2" />
@@ -242,6 +526,14 @@ export default function Preparation() {
                       <span className="hidden sm:block text-white/90 text-sm">
                         {zoneNames.length} zone{zoneNames.length > 1 ? 's' : ''}
                       </span>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <PocketSelect
+                          variant="dark"
+                          pockets={pockets}
+                          placeholder={`Affecter le bloc ${blk}...`}
+                          onSelect={(pid) => assignBlockToPocket(pid, blk)}
+                        />
+                      </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -272,12 +564,20 @@ export default function Preparation() {
                             <span className="text-slate-400 font-normal normal-case">
                               ({zones[zone].length})
                             </span>
+                            <span className="ml-auto">
+                              <PocketSelect
+                                pockets={pockets}
+                                placeholder="Affecter la zone..."
+                                onSelect={(pid) => assignZoneToPocket(pid, blk, zone)}
+                              />
+                            </span>
                           </div>
                           <ul className="px-4 sm:px-5 divide-y divide-slate-50">
                             {zones[zone].map((task) => {
                               const h = parseFloat(task.scheduledHours)
+                              const inPocket = pockets.filter((p) => p.taskIds.includes(task.id))
                               return (
-                                <li key={task.id} className="flex items-center gap-3 py-1.5 group">
+                                <li key={task.id} className="flex items-center gap-2 py-1.5 group">
                                   <span className="text-xs font-mono text-slate-400 w-12 shrink-0">
                                     {task.seq || '-'}
                                   </span>
@@ -287,9 +587,28 @@ export default function Preparation() {
                                   >
                                     {task.description}
                                   </span>
-                                  <span className="text-xs text-slate-500 shrink-0 w-14 text-right">
+                                  {inPocket.length > 0 && (
+                                    <span className="shrink-0 flex gap-1">
+                                      {inPocket.map((p) => (
+                                        <span
+                                          key={p.id}
+                                          className="px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[10px] font-semibold"
+                                          title={`Dans la pochette « ${p.name} »`}
+                                        >
+                                          {p.name}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-slate-500 shrink-0 w-14 text-right hidden sm:block">
                                     {!isNaN(h) ? `${formatHours(h)} h` : ''}
                                   </span>
+                                  <PocketSelect
+                                    pockets={pockets}
+                                    placeholder="+ pochette"
+                                    compact
+                                    onSelect={(pid) => assignToPocket(pid, [task.id])}
+                                  />
                                   <button
                                     onClick={() => {
                                       if (window.confirm('Supprimer cette ligne ?')) removePrepTask(task.id)
@@ -312,6 +631,239 @@ export default function Preparation() {
             })}
         </div>
       )}
+
+      {/* ------- Modal d'impression de pochette ------- */}
+      {printPocket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print-target" onClick={() => setPrintPocketId(null)}>
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b flex items-center justify-between gap-3 bg-slate-50 print:hidden">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">{printPocket.name}</h2>
+                <p className="text-sm text-slate-500">
+                  {printTasks.length} / {printPocket.taskIds.length} ligne(s) sélectionnée(s) ·{' '}
+                  {formatHours(printTotalHours)} h
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-700 text-sm font-semibold"
+                >
+                  <Printer className="h-4 w-4" /> Imprimer
+                </button>
+                <button
+                  onClick={() => setPrintPocketId(null)}
+                  className="text-slate-500 hover:text-slate-800 p-2 rounded hover:bg-slate-200"
+                  title="Fermer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden print:block px-5 py-4 border-b border-slate-300">
+              <h1 className="text-2xl font-bold text-slate-900">{printPocket.name}</h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Pochette virtuelle · {printTasks.length} tâche(s) sélectionnée(s) ·{' '}
+                {formatHours(printTotalHours)} h · {new Date().toLocaleDateString('fr-FR')}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0">
+              {/* Colonne de gauche : répartition */}
+              <div className="w-full sm:w-56 shrink-0 border-r border-slate-100 bg-slate-50 p-4 overflow-y-auto print-hide">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">
+                  Répartition par bloc
+                </h3>
+                {Object.keys(printByBlock).length === 0 ? (
+                  <p className="text-sm text-slate-500">Aucune tâche sélectionnée.</p>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        const allIds = printPocket.taskIds.filter((id) => taskById[id])
+                        setSelectedTasks((prev) =>
+                          allIds.every((id) => prev.includes(id)) ? [] : allIds
+                        )
+                      }}
+                      className="w-full text-left text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md px-3 py-1.5 mb-3 hover:bg-sky-100"
+                    >
+                      {printPocket.taskIds.every((id) => selectedTasks.includes(id))
+                        ? 'Tout décocher'
+                        : 'Tout cocher'}
+                    </button>
+                    <ul className="space-y-2">
+                    {Object.keys(printByBlock).map((blk) => (
+                      <li key={blk}>
+                        <button
+                          onClick={() => {
+                            const ids = printByBlock[blk].zones
+                              ? Object.values(printByBlock[blk].zones).flat().map((t) => t.id)
+                              : []
+                            setSelectedTasks((prev) => {
+                              if (ids.every((id) => prev.includes(id))) {
+                                return prev.filter((id) => !ids.includes(id))
+                              }
+                              return [...new Set([...prev, ...ids])]
+                            })
+                          }}
+                          className="w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded-md bg-white border border-slate-200 hover:border-sky-400"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{ backgroundColor: getCategoryColor(blk) }}
+                            />
+                            <span className="text-sm font-semibold">{blk}</span>
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {printByBlock[blk].count} · {formatHours(printByBlock[blk].totalHours)} h
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              {/* Colonne principale : liste détaillée */}
+              <div className="flex-1 p-4 overflow-y-auto bg-white">
+                {Object.keys(printByBlock).length === 0 ? (
+                  <p className="text-sm text-slate-500">Cochez des tâches à gauche pour les inclure.</p>
+                ) : (
+                  <div className="space-y-5">
+                    {Object.keys(printByBlock).map((blk) => (
+                      <div key={blk} className="print-pocket-block">
+                        <div
+                          className="px-3 py-2 rounded-t-md flex items-center justify-between text-white font-bold"
+                          style={{ backgroundColor: getCategoryColor(blk) }}
+                        >
+                          <span>
+                            Bloc {blk} · {printByBlock[blk].count} tâche(s)
+                          </span>
+                          <span className="opacity-90 font-normal text-sm">
+                            {formatHours(printByBlock[blk].totalHours)} h
+                          </span>
+                        </div>
+                        <div className="border border-t-0 border-slate-200 rounded-b-md overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50">
+                              <tr className="text-left">
+                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold w-8">
+                                  <input
+                                    type="checkbox"
+                                    className="print-hide"
+                                    checked={printByBlock[blk].zones
+                                      ? Object.values(printByBlock[blk].zones).flat().every((t) => selectedTasks.includes(t.id))
+                                      : false}
+                                    onChange={() => {
+                                      const ids = Object.values(printByBlock[blk].zones).flat().map((t) => t.id)
+                                      setSelectedTasks((prev) =>
+                                        ids.every((id) => prev.includes(id))
+                                          ? prev.filter((id) => !ids.includes(id))
+                                          : [...new Set([...prev, ...ids])]
+                                      )
+                                    }}
+                                  />
+                                </th>
+                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold">N°</th>
+                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold">Sous-tâche</th>
+                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold hidden sm:table-cell print:table-cell">Zone</th>
+                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold w-16">H</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {Object.keys(printByBlock[blk].zones).map((zone) =>
+                                printByBlock[blk].zones[zone].map((t) => (
+                                  <tr key={t.id} className="hover:bg-slate-50">
+                                    <td className="px-3 py-1.5">
+                                      <input
+                                        type="checkbox"
+                                        className="print-hide"
+                                        checked={selectedTasks.includes(t.id)}
+                                        onChange={() =>
+                                          setSelectedTasks((prev) =>
+                                            prev.includes(t.id)
+                                              ? prev.filter((id) => id !== t.id)
+                                              : [...prev, t.id]
+                                          )
+                                        }
+                                      />
+                                    </td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-slate-500">{t.seq || '-'}</td>
+                                    <td className="px-3 py-1.5 text-slate-800">{t.description}</td>
+                                    <td className="px-3 py-1.5 text-xs text-slate-500 hidden sm:table-cell print:table-cell">
+                                      {zone}
+                                    </td>
+                                    <td className="px-3 py-1.5 text-right text-slate-700">
+                                      {t.scheduledHours ?? '—'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right print:hidden">
+                                      <button
+                                        onClick={() => removeTasksFromPocket(printPocket.id, [t.id])}
+                                        className="text-slate-300 hover:text-red-600 p-1 rounded"
+                                        title="Retirer cette tâche de la pochette"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-right text-sm font-semibold text-slate-700">
+                      Total : {printTasks.length} tâche(s) · {formatHours(printTotalHours)} h
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PocketSelect({ pockets, placeholder, onSelect, variant = 'light', compact }) {
+  const [value, setValue] = useState('')
+  const dark = variant === 'dark'
+  return (
+    <div className="flex items-center gap-0">
+      <select
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value
+          setValue('')
+          if (v) onSelect(v)
+        }}
+        className={
+          compact
+            ? 'border border-slate-300 rounded-md px-1.5 py-1 text-xs text-slate-500 max-w-[120px] bg-white'
+            : dark
+              ? 'border border-white/50 rounded-md px-2 py-1.5 text-xs font-medium text-white bg-white/20 hover:bg-white/30 max-w-[190px]'
+              : 'border border-slate-300 rounded-md px-2 py-1.5 text-xs text-slate-600 bg-white hover:border-sky-400 max-w-[190px]'
+        }
+        style={{ colorScheme: 'light' }}
+        title={pockets.length === 0 ? "Créez d'abord une pochette" : placeholder}
+      >
+        <option value="">
+          {pockets.length === 0 ? '— Aucune pochette —' : placeholder}
+        </option>
+        {pockets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

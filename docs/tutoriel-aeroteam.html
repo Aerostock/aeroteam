@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroTeam — Guide de prise en main</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-center {
+      content: "AeroTeam — Guide de prise en main — Page " counter(page) " / " counter(pages);
+      font-size: 8pt;
+      color: #94a3b8;
+      font-family: Arial, sans-serif;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    color: #1e293b;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+  /* ---------- Page de garde ---------- */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    page-break-after: always;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0ea5e9 150%);
+    color: #fff;
+  }
+  .cover .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 30px;
+    padding: 16px 26px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  .cover h1 { font-size: 34pt; letter-spacing: 1px; }
+  .cover .subtitle { font-size: 14pt; color: #bae6fd; margin-top: 12px; font-weight: normal; }
+  .cover .version { margin-top: 10px; font-size: 10pt; color: #7dd3fc; }
+  .cover .date { margin-top: 34px; font-size: 10pt; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ---------- Titres & texte ---------- */
+  h1.page-title {
+    font-size: 20pt;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+    padding-bottom: 6px;
+    border-bottom: 3px solid #0ea5e9;
+  }
+  h2 {
+    font-size: 13.5pt;
+    color: #0f172a;
+    margin: 20px 0 8px 0;
+    padding-left: 10px;
+    border-left: 4px solid #0ea5e9;
+  }
+  h3 {
+    font-size: 11.5pt;
+    color: #0369a1;
+    margin: 14px 0 6px 0;
+  }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 10px 20px; }
+  li { margin: 4px 0; }
+
+  /* ---------- Encadrés ---------- */
+  .note {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-left: 4px solid #0ea5e9;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    page-break-inside: avoid;
+  }
+  .note.warn {
+    background: #fffbeb;
+    border-color: #fde68a;
+    border-left-color: #f59e0b;
+  }
+  .note.danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    border-left-color: #ef4444;
+  }
+  .note .title {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- Sommaire ---------- */
+  .toc {
+    list-style: none;
+    margin: 16px 0;
+  }
+  .toc li {
+    margin: 8px 0;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 11pt;
+  }
+  .toc li b { color: #0ea5e9; margin-right: 8px; }
+
+  /* ---------- Tableaux ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9.5pt;
+  }
+  th {
+    background: #0f172a;
+    color: #fff;
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 9.5pt;
+  }
+  td {
+    border: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* ---------- Étapes ---------- */
+  .step {
+    display: flex;
+    gap: 12px;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .step .num {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #0ea5e9;
+    color: #fff;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11pt;
+    margin-top: 2px;
+  }
+  .step .body { flex: 1; }
+  .step .body .step-title { font-weight: bold; color: #0f172a; }
+
+  .small { font-size: 9pt; color: #64748b; }
+  .mono {
+    font-family: "Courier New", monospace;
+    font-size: 9pt;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .kb {
+    display: inline-block;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0 6px;
+    background: #f8fafc;
+    box-shadow: inset 0 -2px 0 #cbd5e1;
+    font-size: 9pt;
+  }
+  .pagebreak { page-break-before: always; }
+  .avoid { page-break-inside: avoid; }
+  .check { color: #16a34a; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE DE GARDE ============ -->
+<div class="cover">
+  <div class="logo">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#7dd3fc" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+    <span style="font-size:24pt; font-weight:bold;">AeroTeam</span>
+  </div>
+  <h1>Guide de prise en main</h1>
+  <div class="subtitle">Gestion des équipes &amp; affectation de la charge de travail</div>
+  <div class="version">Application web — Accessible sur ordinateur, tablette et téléphone</div>
+  <div class="date">Document d'utilisation</div>
+</div>
+
+<!-- ============ SOMMAIRE ============ -->
+<div class="pagebreak"></div>
+<h1 class="page-title">Sommaire</h1>
+<ul class="toc">
+  <li><b>1.</b> Introduction &amp; accès à l'application</li>
+  <li><b>2.</b> Prérequis : accès à Victory Tracking</li>
+  <li><b>3.</b> Se connecter à son profil</li>
+  <li><b>4.</b> Vue d'ensemble des onglets</li>
+  <li><b>5.</b> Import Victory — charger votre fichier de charge</li>
+  <li><b>6.</b> Tableau de bord</li>
+  <li><b>7.</b> Gestion des équipes</li>
+  <li><b>8.</b> Tâches par zone</li>
+  <li><b>9.</b> Affectation des tâches</li>
+  <li><b>10.</b> Préparation vac suivante</li>
+  <li><b>11.</b> Export &amp; sauvegarde</li>
+  <li><b>12.</b> Bloc-notes</li>
+  <li><b>13.</b> Synchronisation multi-appareils &amp; session</li>
+  <li><b>14.</b> Imprimer la charge d'une équipe</li>
+</ul>
+
+<!-- ============ 1. INTRODUCTION ============ -->
+<h1 class="page-title">1. Introduction</h1>
+<p>
+  <b>AeroTeam</b> est une application web de gestion de la charge de travail pour les équipes de maintenance
+  aéronautique. Elle permet de :
+</p>
+<ul>
+  <li><b>Importer</b> la charge de travail depuis un fichier issu de <b>Victory Tracking</b> ;</li>
+  <li><b>Visualiser</b> les tâches regroupées par zone de travail et par bloc ;</li>
+  <li><b>Créer des équipes</b> et pré-enregistrer les techniciens ;</li>
+  <li><b>Affecter</b> les tâches (par bloc, par zone ou ligne par ligne) ;</li>
+  <li><b>Préparer la vacation suivante</b> à partir de la charge restante ;</li>
+  <li><b>Exporter</b> le planning et <b>imprimer</b> la charge d'une équipe ;</li>
+  <li>Retrouver ses données sur <b>n'importe quel appareil</b>.</li>
+</ul>
+
+<div class="note">
+  <span class="title">Application web</span>
+  Aucune installation n'est nécessaire. L'application se lance dans un navigateur moderne
+  (Chrome, Edge, Safari). Il vous suffit d'en connaître l'adresse.
+</div>
+
+<!-- ============ 2. PREREQUIS ============ -->
+<h1 class="page-title">2. Prérequis : accès à Victory Tracking</h1>
+<p>
+  Pour alimenter l'application, vous devez disposer d'un <b>accès à Victory Tracking</b>, l'outil de suivi
+  de maintenance du site. C'est de lui que proviennent les fichiers de charge de travail importés.
+</p>
+
+<h2>2.1 Ce dont vous avez besoin</h2>
+<ul>
+  <li>Un <b>identifiant et un mot de passe</b> valides pour Victory Tracking (compte leader) ;</li>
+  <li>L'<b>éditeur de rapports / exports</b> accessible depuis votre session Victory Tracking ;</li>
+  <li>La possibilité de <b>générer et télécharger</b> un rapport au format <b>CSV</b>.</li>
+</ul>
+
+<h2>2.2 Le fichier CSV attendu</h2>
+<p>
+  Le fichier à importer est un <b>export CSV du Workpackage Report</b> (rapport de charge de travail).
+  Il doit contenir notamment les colonnes suivantes :
+</p>
+<table>
+  <tr><th>Colonne</th><th>Exemple</th><th>Utilité dans AeroTeam</th></tr>
+  <tr><td><span class="mono">Task_Name</span></td><td>Révision de la commande de vol</td><td>Libellé de la tâche (affiché partout)</td></tr>
+  <tr><td><span class="mono">Seq._Nr.</span></td><td>25A</td><td>Numéro de la ligne (N°)</td></tr>
+  <tr><td><span class="mono">Skill(s)</span></td><td>CABB-MECH</td><td>Métier / spécialité</td></tr>
+  <tr><td><span class="mono">MTX Status</span></td><td>ACTV / PAUSE</td><td>Statut (les lignes ACTV et PAUSE sont conservées)</td></tr>
+  <tr><td><span class="mono">Task_Type</span></td><td>JIC / CORR / MPC</td><td>Bloc de la tâche (couleurs, filtres, tuiles)</td></tr>
+  <tr><td><span class="mono">Work Area</span></td><td>Fuselage avant</td><td>Zone de travail</td></tr>
+  <tr><td><span class="mono">Scheduled Hours</span></td><td>8,0</td><td>Heures planifiées</td></tr>
+  <tr><td><span class="mono">Aircraft Registration</span></td><td>F-GKXT</td><td>Immatriculation de l'appareil</td></tr>
+</table>
+
+<div class="note">
+  <span class="title">Vérification du format</span>
+  Si la colonne <span class="mono">Task_Name</span> est introuvable dans le fichier, l'import refusera
+  le fichier avec un message explicite. Contrôlez l'export dans Victory Tracking avant de l'emporter.
+</div>
+
+<div class="note warn">
+  <span class="title">Bon à savoir</span>
+  A l'import, les lignes dont le champ <b>Skill</b> ne commence pas par <b>CABB</b> et celles dont le
+  statut est différent de <b>ACTV</b> ou <b>PAUSE</b> sont automatiquement <b>filtrées</b>. Le nombre de
+  lignes conservées / exclues est affiché après l'import.
+</div>
+
+<h2>2.3 Préparer la charge restante pour la vacation suivante</h2>
+<p>
+  En fin de journée, le même principe s'applique : générez depuis Victory Tracking l'export de la
+  <b>charge restante</b> et utilisez l'onglet <b>« Préparation vac suivante »</b> (voir chapitre 10).
+</p>
+
+<!-- ============ 3. SE CONNECTER ============ -->
+<h1 class="page-title">3. Se connecter à son profil</h1>
+<p>
+  Chaque leader utilise un <b>code personnel</b> qui lui sert de clé d'accès. Avec ce code, vous retrouvez
+  votre profil et <b>toutes vos données</b> (équipes, tâches, affectations, notes) quel que soit l'appareil.
+</p>
+<div class="step">
+  <div class="num">1</div>
+  <div class="body">
+    <div class="step-title">Ouvrez AeroTeam</div>
+    Saisissez l'adresse de l'application dans le navigateur (ordinateur, tablette ou téléphone).
+  </div>
+</div>
+<div class="step">
+  <div class="num">2</div>
+  <div class="body">
+    <div class="step-title">Saisissez votre code personnel</div>
+    Le champ est <b>masqué</b> (affiché sous forme d'étoiles). Validez avec la touche
+    <span class="kb">Entrée</span> ou le bouton <b>« Se connecter »</b>.
+  </div>
+</div>
+<div class="step">
+  <div class="num">3</div>
+  <div class="body">
+    <div class="step-title">Vous êtes connecté</div>
+    Le tableau de bord s'affiche avec le nom de votre profil en haut à droite.
+  </div>
+</div>
+<div class="note warn">
+  <span class="title">Code inconnu ?</span>
+  Si le code saisi ne correspond à aucun profil, un message d'erreur s'affiche : « Aucun profil ne
+  correspond à ce code ». Vérifiez l'orthographe (le code est sensible à la casse).
+</div>
+
+<!-- ============ 4. VUE D'ENSEMBLE ============ -->
+<h1 class="page-title">4. Vue d'ensemble des onglets</h1>
+<p>La barre de navigation (une ligne, défilable sur petit écran) donne accès aux fonctionnalités suivantes :</p>
+<table>
+  <tr><th>Onglet</th><th>Rôle</th></tr>
+  <tr><td><b>Tableau de bord</b></td><td>Vue d'ensemble : statistiques, répartition par bloc, tâches à traiter, récap de la charge par équipe.</td></tr>
+  <tr><td><b>Import Victory</b></td><td>Chargement du fichier CSV issu de Victory Tracking (Workpackage Report).</td></tr>
+  <tr><td><b>Tâches</b></td><td>Consultation des tâches, groupées par zone de travail, avec filtres par bloc et par statut.</td></tr>
+  <tr><td><b>Équipes</b></td><td>Pré-enregistrement des techniciens et création / gestion des équipes.</td></tr>
+  <tr><td><b>Affectation</b></td><td>Affectation des tâches aux équipes (par bloc complet, par zone, ou ligne par ligne).</td></tr>
+  <tr><td><b>Export</b></td><td>Téléchargement du planning (Excel / JSON), résumé et zone de réinitialisation.</td></tr>
+  <tr><td><b>Préparation vac suivante</b></td><td>Préparation de la charge de la vacation suivante à partir de la charge restante.</td></tr>
+  <tr><td><b>Bloc-notes</b></td><td>Notes persistantes sous forme de tuiles (conservées même après réinitialisation).</td></tr>
+</table>
+<p class="small">Sur écran étroit (téléphone), la barre défile horizontalement pour atteindre tous les onglets.</p>
+
+<!-- ============ 5. IMPORT VICTORY ============ -->
+<h1 class="page-title">5. Import Victory — charger votre fichier de charge</h1>
+<p>
+  Cet onglet permet d'importer le fichier CSV du <b>Workpackage Report</b> généré par Victory Tracking.
+</p>
+<div class="step">
+  <div class="num">1</div>
+  <div class="body">
+    <div class="step-title">Cliquez ou glissez-déposez</div>
+    Dans l'onglet <b>Import Victory</b>, cliquez sur la zone de dépôt ou glissez-déposez votre fichier
+    (<span class="mono">.csv</span>, <span class="mono">.xlsx</span>, <span class="mono">.xls</span>).
+  </div>
+</div>
+<div class="step">
+  <div class="num">2</div>
+  <div class="body">
+    <div class="step-title">Aperçu puis import</div>
+    Un <b>aperçu</b> s'affiche avec les lignes conservées après filtres (Skills CABB*, statuts ACTV/PAUSE),
+    ainsi que les statistiques (lignes totales, conservées, exclues). Cliquez sur
+    <b>« Importer les tâches »</b> pour confirmer.
+  </div>
+</div>
+<div class="step">
+  <div class="num">3</div>
+  <div class="body">
+    <div class="step-title">Vérifiez le résultat</div>
+    Un message de confirmation indique le nombre de tâches importées. La liste des blocs importés
+    (JIC, CORR, MPC…) et leurs quantités s'affichent en bas de page.
+  </div>
+</div>
+<div class="note">
+  <span class="title">Les tâches ne sont pas doublées</span>
+  Si vous importez deux fois le même fichier, les lignes déjà présentes (mêmes numéros) sont
+  automatiquement ignorées. Vous pouvez importer consécutivement plusieurs fichiers pour cumuler la charge.
+</div>
+
+<!-- ============ 6. TABLEAU DE BORD ============ -->
+<h1 class="page-title">6. Tableau de bord</h1>
+<p>Le tableau de bord est la vue d'ensemble de votre workpackage :</p>
+<h2>6.1 Indicateurs</h2>
+<ul>
+  <li><b>Tâches totales</b>, <b>tâches assignées</b>, <b>non assignées</b> et <b>heures totales</b>.</li>
+</ul>
+<h2>6.2 Répartition par bloc</h2>
+<p>Barres de répartition pour chaque bloc (JIC, CORR, MPC…) avec nombre et pourcentage.</p>
+<h2>6.3 À traiter (non assignées)</h2>
+<p>
+  Les tâches non affectées, regroupées par bloc (repliées par défaut, dépliez avec un clic), puis par zone.
+</p>
+<h2>6.4 Récap détaillé de la charge par équipe</h2>
+<p>
+  Pour chaque équipe : nombre de tâches, <b>prénoms des membres</b>, charge moyenne par membre, et le détail
+  des blocs / zones affectés avec les numéros de lignes.
+</p>
+<h2>6.5 Charge d'une équipe en détail</h2>
+<p>
+  Cliquez sur une ligne d'équipe pour ouvrir le <b>pop-up</b> détaillant ses tâches (TRFX, N°, Type, Bloc,
+  Tâche, Appareil). Le bouton <b>« Imprimer »</b> permet d'imprimer la charge de l'équipe (voir chapitre 14).
+</p>
+
+<!-- ============ 7. EQUIPES ============ -->
+<h1 class="page-title">7. Gestion des équipes</h1>
+<h2>7.1 Pré-enregistrer les techniciens</h2>
+<ul>
+  <li>Saisissez les noms dans le champ (séparés par virgules) puis <b>« Ajouter »</b> ;</li>
+  <li>ou cliquez sur <b>« Charger un fichier »</b> pour importer une liste
+      (<span class="mono">.txt</span> / <span class="mono">.csv</span>, noms séparés par ligne,
+      virgule, point-virgule ou tabulation) ;</li>
+  <li>Les noms apparaissent sous forme de pastilles. Un <b>X</b> permet de retirer un membre.</li>
+</ul>
+<div class="note">
+  <span class="title">Convention de nommage</span>
+  Les techniciens sont enregistrés avec leur civilité et leur nom complet, par exemple
+  <b>« Mr Farid Ayad »</b> ou <b>« Mme Lea Damagnez »</b>. Dans le tableau de bord, seuls les
+  <b>prénoms</b> (Farid, Lea…) sont affichés sous le nom des équipes.
+</div>
+<h2>7.2 Créer une équipe</h2>
+<div class="step">
+  <div class="num">1</div>
+  <div class="body">
+    <div class="step-title">Cliquez sur « Nouvelle équipe »</div>
+    Saisissez le nom de l'équipe (ex : « Équipe mécanique matin »).
+  </div>
+</div>
+<div class="step">
+  <div class="num">2</div>
+  <div class="body">
+    <div class="step-title">Cochez les membres</div>
+    Cochez les techniciens pré-enregistrés concernés, puis validez « Créer l'équipe ».
+  </div>
+</div>
+<div class="step">
+  <div class="num">3</div>
+  <div class="body">
+    <div class="step-title">Gérez les équipes existantes</div>
+    Chaque carte d'équipe permet d'<b>ajouter</b> des membres depuis les pré-enregistrés, d'en <b>retirer</b>
+    (X), ou de <b>supprimer l'équipe</b> (corbeille). Le nombre de tâches assignées est affiché.
+  </div>
+</div>
+
+<!-- ============ 8. TACHES ============ -->
+<h1 class="page-title">8. Tâches par zone</h1>
+<p>Cet onglet permet de consulter la charge importée, <b>groupée par zone de travail</b>.</p>
+<ul>
+  <li>Le champ <b>recherche</b> filtre instantanément par libellé, zone, skills ou appareil ;</li>
+  <li>Le menu <b>statut</b> filtre selon l'état (ACTV, PAUSE, …) ;</li>
+  <li>La barre <b>« Filtrer par bloc »</b> permet de masquer / afficher certains blocs en un clic
+      (une corbeille à côté d'un bloc supprime toutes ses tâches après confirmation) ;</li>
+  <li>Les <b>zones sont repliées par défaut</b> : cliquez sur l'en-tête coloré d'une zone pour la déplier ;</li>
+  <li>Dans une zone, les blocs présents sont indiqués par des pastilles (ex : JIC · 12).</li>
+</ul>
+<p>Chaque ligne de tâche affiche : N° , libellé, bloc, skills, TRFX, statut, appareil et l'équipe affectée (ou « Non assignée »).</p>
+
+<!-- ============ 9. AFFECTATION ============ -->
+<h1 class="page-title">9. Affectation des tâches</h1>
+<p>L'affectation se fait depuis l'onglet <b>Affectation</b>, selon trois méthodes.</p>
+
+<h2>9.1 Par bloc complet</h2>
+<p>
+  Chaque bloc (replié par défaut) propose en son en-tête un menu <b>« — Affecter tout le bloc — »</b> :
+  choisissez une équipe pour lui attribuer toutes les tâches non assignées du bloc.
+</p>
+<h2>9.2 Par zone</h2>
+<p>
+  Dépliez un bloc, puis utilisez le menu <b>« — Toute la zone — »</b> d'une zone pour affecter à une équipe
+  toutes les tâches non assignées de cette zone.
+</p>
+<h2>9.3 Ligne par ligne</h2>
+<p>
+  Dépliez jusqu'à la liste des lignes et choisissez l'équipe dans le menu déroulant de la tâche concernée.
+  Une tâche affectée affiche la pastille de l'équipe ; le bouton <b>↩</b> la retire.
+  Les lignes non affectées sont <b>glissables</b> : glissez-les directement sur une équipe (panneau droit)
+  pour les y affecter.
+</p>
+<div class="note">
+  <span class="title">Suivi de la répartition</span>
+  Le panneau droit « Équipes » synthétise pour chaque équipe les blocs et zones affectés ainsi que les
+  numéros de lignes, et le nombre total de tâches.
+</div>
+
+<!-- ============ 10. PREPARATION VAC SUIVANTE ============ -->
+<h1 class="page-title">10. Préparation vac suivante</h1>
+<p>
+  Le leader du matin prépare la charge de travail de l'équipe de l'après-midi. En fin de journée, il charge
+  l'export de la <b>charge restante</b> dans cet onglet, trié comme pour les tâches, avec une vue compacte
+  en <b>tuiles par bloc</b>.
+</p>
+<div class="step">
+  <div class="num">1</div>
+  <div class="body">
+    <div class="step-title">Chargez la charge restante</div>
+    Dans l'onglet <b>« Préparation vac suivante »</b>, cliquez ou glissez-déposez le fichier CSV de la
+    charge restante (même format que l'import Victory).
+  </div>
+</div>
+<div class="step">
+  <div class="num">2</div>
+  <div class="body">
+    <div class="step-title">Aperçu puis « Ajouter à la préparation »</div>
+    Contrôlez l'aperçu, puis ajoutez les lignes à la préparation.
+  </div>
+</div>
+<div class="step">
+  <div class="num">3</div>
+  <div class="body">
+    <div class="step-title">Consultez les tuiles</div>
+    Les blocs apparaissent en <b>tuiles repliées</b> : compteur de lignes, total d'heures et nombre de zones.
+    Dépliez une tuile pour voir, zone par zone, les sous-tâches (N°, libellé, heures). Une corbeille supprime
+    une ligne ou un bloc entier ; « Tout effacer » vide la préparation.
+  </div>
+</div>
+<div class="note">
+  <span class="title">Indépendant des tâches</span>
+  La préparation vac suivante est stockée <b>séparément</b> des tâches : elle n'impacte ni le tableau de bord
+  ni l'affectation. Les données sont sauvegardées dans le cloud avec votre profil.
+</div>
+
+<!-- ============ 11. EXPORT ============ -->
+<h1 class="page-title">11. Export &amp; sauvegarde</h1>
+<h2>11.1 Télécharger le planning</h2>
+<ul>
+  <li><b>Exporter en Excel</b> : génère un fichier <span class="mono">.xlsx</span> avec toutes les tâches et leurs affectations ;</li>
+  <li><b>Exporter en JSON</b> : sauvegarde structurée par équipe avec les tâches associées.</li>
+</ul>
+<h2>11.2 Résumé du planning</h2>
+<p>Indicateurs : tâches, assignées, non assignées, équipes, membres.</p>
+<h2>11.3 Zone danger — réinitialisation</h2>
+<div class="note danger">
+  <span class="title">Action irréversible</span>
+  « Tout réinitialiser » efface les <b>tâches, équipes, affectations et la préparation</b>. La liste des
+  <b>membres est conservée</b>, ainsi que les <b>notes du bloc-notes</b>. Cette action ne peut pas être annulée.
+</div>
+
+<!-- ============ 12. BLOC-NOTES ============ -->
+<h1 class="page-title">12. Bloc-notes</h1>
+<p>
+  L'onglet <b>Bloc-notes</b> permet de garder des notes sous forme de <b>tuiles</b> (couleur jaune), utiles
+  pour des consignes, rappels ou informations partagées avec votre équipe.
+</p>
+<ul>
+  <li><b>Nouvelle note</b> : crée une tuile avec un titre et un contenu ;</li>
+  <li>Chaque tuile peut être <b>modifiée</b> (crayon) ou <b>supprimée</b> (corbeille) ;</li>
+  <li>Les notes sont <b>sauvegardées dans le cloud</b> avec votre profil : retrouvées sur tous vos appareils ;</li>
+  <li>Elles <b>survivent à la réinitialisation</b>.</li>
+</ul>
+
+<!-- ============ 13. SYNC ============ -->
+<h1 class="page-title">13. Synchronisation multi-appareils &amp; session</h1>
+<h2>13.1 Vos données sont dans le cloud</h2>
+<p>
+  Toutes vos données (équipes, membres, tâches, affectations, préparation, notes) sont enregistrées
+  automatiquement avec votre profil. En vous connectant avec votre <b>code personnel</b> depuis n'importe quel
+  appareil, vous retrouvez <b>exactement le même état de travail</b>.
+</p>
+<h2>13.2 Session à durée limitée</h2>
+<div class="note warn">
+  <span class="title">Sécurité</span>
+  La session est automatiquement fermée après <b>12 heures</b> d'inactivité. Le code personnel est alors
+  redemandé. Cela garantit qu'un appareil laissé ouvert ne reste pas accessible indéfiniment.
+</div>
+<h2>13.3 Changer de profil / supprimer son profil</h2>
+<ul>
+  <li>Le bouton de <b>déconnexion</b> (en haut à droite) permet de quitter le profil sans supprimer les données ;</li>
+  <li>Le bouton <b>corbeille</b> (à côté) supprime <b>définitivement</b> le profil et toutes ses données
+      (double confirmation). Cette action est irréversible.</li>
+</ul>
+
+<!-- ============ 14. IMPRESSION ============ -->
+<h1 class="page-title">14. Imprimer la charge d'une équipe</h1>
+<div class="step">
+  <div class="num">1</div>
+  <div class="body">
+    <div class="step-title">Ouvrez la charge d'une équipe</div>
+    Dans le <b>Tableau de bord</b>, cliquez sur une équipe dans le récap de charge.
+  </div>
+</div>
+<div class="step">
+  <div class="num">2</div>
+  <div class="body">
+    <div class="step-title">Cliquez sur « Imprimer »</div>
+    Le pop-up de l'équipe propose un bouton <b>« Imprimer »</b>.
+  </div>
+</div>
+<div class="step">
+  <div class="num">3</div>
+  <div class="body">
+    <div class="step-title">Validez la boîte d'impression du navigateur</div>
+    Seule la charge de l'équipe sélectionnée (tableau des tâches) sera imprimée.
+  </div>
+</div>
+
+<div class="note">
+  <span class="title">Récapitulatif des bonnes pratiques</span>
+  <ol>
+    <li>Connectez-vous avec <b>votre code personnel</b> sur tous vos appareils ;</li>
+    <li>Générez l'export CSV de la charge depuis <b>Victory Tracking</b> ;</li>
+    <li>Importez-le via <b>Import Victory</b> ;</li>
+    <li>Pré-enregistrez vos techniciens et créez vos <b>équipes</b> ;</li>
+    <li><b>Affectez</b> les tâches par bloc, zone ou ligne ;</li>
+    <li>Suivez la charge sur le <b>tableau de bord</b> et imprimez-la si besoin ;</li>
+    <li>Préparez la vacation suivante via <b>Préparation vac suivante</b> ;</li>
+    <li>Conservez vos consignes dans le <b>Bloc-notes</b>.</li>
+  </ol>
+</div>
+
+<p class="small">— Fin du guide AeroTeam —</p>
+
+</body>
+</html>

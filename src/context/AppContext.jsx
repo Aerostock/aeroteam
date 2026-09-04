@@ -38,7 +38,15 @@ function dedupeTasks(tasks) {
   return out
 }
 
-const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [], prepTasks: [], notes: [] }
+const DEFAULT_EMPTY = {
+  tasks: [],
+  teams: [],
+  assignments: {},
+  members: [],
+  prepTasks: [],
+  notes: [],
+  pockets: [],
+}
 
 export function AppProvider({ children }) {
   const [code, setCode] = useState(loadActiveCode)
@@ -51,6 +59,7 @@ export function AppProvider({ children }) {
   const [assignments, setAssignments] = useState({})
   const [members, setMembers] = useState([])
   const [prepTasks, setPrepTasks] = useState([])
+  const [pockets, setPockets] = useState([])
   const [notes, setNotes] = useState([])
   const [loaded, setLoaded] = useState(false)
 
@@ -66,6 +75,7 @@ export function AppProvider({ children }) {
       setAssignments({})
       setMembers([])
       setPrepTasks([])
+      setPockets([])
       setNotes([])
       setLoaded(false)
       return
@@ -95,6 +105,7 @@ export function AppProvider({ children }) {
         setAssignments(data.assignments || {})
         setMembers(data.members || [])
         setPrepTasks(data.prepTasks || [])
+        setPockets(data.pockets || [])
         setNotes(data.notes || [])
         setLoaded(true)
       })
@@ -118,13 +129,13 @@ export function AppProvider({ children }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       profileStore
-        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks, notes })
+        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks, notes, pockets })
         .catch((err) => console.error('Sauvegarde Supabase échouée', err))
     }, 600)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes])
+  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes, pockets])
 
   const connectProfile = useCallback(async (profileCode) => {
     const c = String(profileCode || '').trim()
@@ -168,6 +179,7 @@ export function AppProvider({ children }) {
     setAssignments({})
     setMembers([])
     setPrepTasks([])
+    setPockets([])
     setNotes([])
     setLoaded(false)
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -265,6 +277,7 @@ export function AppProvider({ children }) {
     setTeams([])
     setAssignments({})
     setPrepTasks([])
+    setPockets([])
   }, [])
 
   const addPrepTasks = useCallback((newTasks) => {
@@ -287,14 +300,69 @@ export function AppProvider({ children }) {
 
   const removePrepTask = useCallback((taskId) => {
     setPrepTasks((prev) => prev.filter((t) => t.id !== taskId))
+    setPockets((prev) =>
+      prev.map((p) => ({ ...p, taskIds: p.taskIds.filter((id) => id !== taskId) }))
+    )
   }, [])
 
   const removePrepTasksByBlock = useCallback((block) => {
-    setPrepTasks((prev) => prev.filter((t) => t.taskType !== block))
+    setPrepTasks((prev) => {
+      const removedIds = prev.filter((t) => t.taskType === block).map((t) => t.id)
+      setPockets((prevPockets) =>
+        prevPockets.map((p) => ({
+          ...p,
+          taskIds: p.taskIds.filter((id) => !removedIds.includes(id)),
+        }))
+      )
+      return prev.filter((t) => t.taskType !== block)
+    })
   }, [])
 
   const clearPrepTasks = useCallback(() => {
     setPrepTasks([])
+    setPockets([])
+  }, [])
+
+  const addPocket = useCallback((name) => {
+    const trimmed = String(name || '').trim()
+    if (!trimmed) return null
+    const id = `pocket-${Date.now()}`
+    setPockets((prev) => [
+      ...prev,
+      { id, name: trimmed, taskIds: [], createdAt: Date.now() },
+    ])
+    return id
+  }, [])
+
+  const renamePocket = useCallback((pocketId, name) => {
+    const trimmed = String(name || '').trim()
+    setPockets((prev) =>
+      prev.map((p) => (p.id === pocketId ? { ...p, name: trimmed || p.name } : p))
+    )
+  }, [])
+
+  const addTasksToPocket = useCallback((pocketId, taskIds) => {
+    const ids = [...new Set(taskIds)]
+    setPockets((prev) =>
+      prev.map((p) =>
+        p.id === pocketId
+          ? { ...p, taskIds: [...new Set([...p.taskIds, ...ids])] }
+          : p
+      )
+    )
+  }, [])
+
+  const removeTasksFromPocket = useCallback((pocketId, taskIds) => {
+    const ids = new Set(taskIds)
+    setPockets((prev) =>
+      prev.map((p) =>
+        p.id === pocketId ? { ...p, taskIds: p.taskIds.filter((id) => !ids.has(id)) } : p
+      )
+    )
+  }, [])
+
+  const removePocket = useCallback((pocketId) => {
+    setPockets((prev) => prev.filter((p) => p.id !== pocketId))
   }, [])
 
   const addNote = useCallback((title, content) => {
@@ -339,13 +407,14 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    tasks, teams, assignments, members, prepTasks, notes,
+tasks, teams, assignments, members, prepTasks, notes, pockets,
     activeProfile, code, isAdmin: code === ADMIN_CODE,
     loading, error,
     connectProfile, createProfile, disconnect, deleteProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
     addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,
+    addPocket, renamePocket, addTasksToPocket, removeTasksFromPocket, removePocket,
     addNote, updateNote, removeNote,
   }
 
