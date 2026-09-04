@@ -463,9 +463,6 @@ export default function Preparation() {
                       <span className="px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full text-xs font-semibold">
                         {st.count} tâche{st.count > 1 ? 's' : ''}
                       </span>
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">
-                        {formatHours(st.hours)} h
-                      </span>
                       {st.missing > 0 && (
                         <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-xs">
                           {st.missing} supprimé{st.missing > 1 ? 's' : ''}
@@ -916,7 +913,7 @@ function PocketChips({ counts, pocketById, onRemove, dark }) {
   const entries = Object.entries(counts)
   if (entries.length === 0) return null
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    <span className="flex flex-wrap items-center gap-1.5">
       {entries.map(([pid, n]) => {
         const p = pocketById[pid]
         if (!p) return null
@@ -925,19 +922,20 @@ function PocketChips({ counts, pocketById, onRemove, dark }) {
             key={pid}
             className={
               dark
-                ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white bg-white/20 border border-white/50'
-                : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-sky-800 bg-sky-50 border border-sky-300'
+                ? 'inline-flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-full text-xs font-bold text-white bg-slate-900 border border-white/90 shadow'
+                : 'inline-flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-full text-xs font-bold text-sky-950 bg-sky-100 border-2 border-sky-500 shadow-sm'
             }
             title={`Dans la pochette « ${p.name} » (${n}) — cliquez pour retirer`}
           >
-            <span className={dark ? 'opacity-90' : ''}>{p.name}</span>
-            <span className={dark ? 'opacity-70' : 'text-sky-500'}>({n})</span>
+            <FolderPlus className={dark ? 'h-3.5 w-3.5 text-sky-300' : 'h-3.5 w-3.5 text-sky-600'} />
+            <span>{p.name}</span>
+            <span className={dark ? 'opacity-75' : 'text-sky-600'}>({n})</span>
             <button
               onClick={() => onRemove(pid)}
-              className="hover:text-red-500 -mr-0.5"
+              className="hover:text-red-400 -mr-0.5"
               title={`Retirer de la pochette « ${p.name} »`}
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </span>
         )
