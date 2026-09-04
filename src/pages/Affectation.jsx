@@ -7,17 +7,17 @@ export default function Affectation() {
   const { tasks, teams, assignments, assignTask, unassignTask } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
-  const [collapsedBlocks, setCollapsedBlocks] = useState([])
-  const [collapsedZones, setCollapsedZones] = useState([])
+  const [expandedBlocks, setExpandedBlocks] = useState([])
+  const [expandedZones, setExpandedZones] = useState([])
 
   const toggleBlockCollapse = (block) => {
-    setCollapsedBlocks((prev) =>
+    setExpandedBlocks((prev) =>
       prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
     )
   }
 
   const toggleZoneCollapse = (key) => {
-    setCollapsedZones((prev) =>
+    setExpandedZones((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     )
   }
@@ -177,15 +177,15 @@ export default function Affectation() {
             const blockTasks = groupedByBlock[block] || []
             const blockColor = getCategoryColor(block)
             const unassignedInBlock = blockTasks.filter((t) => !assignments[t.id])
-            const blockCollapsed = collapsedBlocks.includes(block)
+            const blockExpanded = expandedBlocks.includes(block)
             return (
               <div key={block} className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="px-4 py-2 flex flex-wrap items-center justify-between gap-2" style={{ backgroundColor: blockColor }}>
                   <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleBlockCollapse(block)}>
-                    {blockCollapsed ? (
-                      <ChevronRight className="h-5 w-5 text-white" />
-                    ) : (
+                    {blockExpanded ? (
                       <ChevronDown className="h-5 w-5 text-white" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-white" />
                     )}
                     <h3 className="font-bold text-white text-sm">
                       Bloc {block} <span className="font-normal opacity-80">({blockTasks.length})</span>
@@ -216,7 +216,7 @@ export default function Affectation() {
                   </div>
                 </div>
 
-                {!blockCollapsed && (
+                {blockExpanded && (
                 <div className="p-4 space-y-3">
                   {Object.entries(groupByZone(blockTasks))
                     .sort((a, b) => b[1].length - a[1].length)
@@ -224,7 +224,7 @@ export default function Affectation() {
                       const zoneColor = getZoneColor(zone, zones)
                       const unassignedInZone = zoneTasks.filter((t) => !assignments[t.id])
                       const zoneKey = `${block}::${zone}`
-                      const zoneCollapsed = collapsedZones.includes(zoneKey)
+                      const zoneExpanded = expandedZones.includes(zoneKey)
                       return (
                         <div
                           key={zone}
@@ -236,10 +236,10 @@ export default function Affectation() {
                             style={{ backgroundColor: zoneColor }}
                           >
                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleZoneCollapse(zoneKey)}>
-                              {zoneCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-white" />
-                              ) : (
+                              {zoneExpanded ? (
                                 <ChevronDown className="h-5 w-5 text-white" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 text-white" />
                               )}
                               <span className="text-sm font-bold text-white">
                                 📍 {zone}{' '}
@@ -270,7 +270,7 @@ export default function Affectation() {
                               )}
                             </div>
                           </div>
-                          {!zoneCollapsed && (
+                          {zoneExpanded && (
                           <ul className="divide-y divide-slate-100">
                             {zoneTasks.map((task) => {
                               const assigned = assignments[task.id]
