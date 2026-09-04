@@ -9,7 +9,7 @@ const navItems = [
   { to: '/equipes', label: 'Équipes' },
   { to: '/affectation', label: 'Affectation' },
   { to: '/export', label: 'Export' },
-  { to: '/preparation', label: 'Préparation' },
+  { to: '/preparation', label: 'Préparation vac suivante' },
   { to: '/notes', label: 'Bloc-notes' },
 ]
 
