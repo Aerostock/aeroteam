@@ -9,9 +9,11 @@ import Equipes from './pages/Equipes'
 import Affectation from './pages/Affectation'
 import Export from './pages/Export'
 import Preparation from './pages/Preparation'
+import BlocNotes from './pages/BlocNotes'
+import Admin from './pages/Admin'
 
 function AppContent() {
-  const { activeProfile, loading, error } = useApp()
+  const { activeProfile, loading, error, isAdmin } = useApp()
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center gap-3">
@@ -30,7 +32,9 @@ function AppContent() {
         <Route path="/equipes" element={<Equipes />} />
         <Route path="/affectation" element={<Affectation />} />
         <Route path="/preparation" element={<Preparation />} />
+        <Route path="/notes" element={<BlocNotes />} />
         <Route path="/export" element={<Export />} />
+        {isAdmin && <Route path="/admin" element={<Admin />} />}
       </Routes>
     </Layout>
   )

@@ -84,6 +84,18 @@ export function getShiftColor(shift) {
   return key ? SHIFT_COLORS[key] : SHIFT_COLORS.AUTRE
 }
 
+// Extrait le prénom d'un nom complet du type "Mr Farid Ayad" -> "Farid",
+// "Mme Lea Damagnez" -> "Lea". Sans civilité, renvoie le premier mot.
+export function getFirstName(fullName) {
+  const name = String(fullName || '').trim()
+  if (!name) return ''
+  const parts = name.split(/\s+/)
+  if (/^(mr|mme|m\.|mme\.|mrs|ms)\.?$/i.test(parts[0])) {
+    return parts[1] || ''
+  }
+  return parts[0]
+}
+
 export function groupTasksByCategory(tasks) {
   return tasks.reduce((acc, task) => {
     const cat = task.taskType || task.category || 'AUTRE'

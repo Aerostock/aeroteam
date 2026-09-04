@@ -4,16 +4,21 @@ import { useApp } from '../context/AppContext'
 
 const navItems = [
   { to: '/', label: 'Tableau de bord', end: true },
-  { to: '/import', label: 'Importer Excel' },
+  { to: '/import', label: 'Import Victory' },
   { to: '/taches', label: 'Tâches' },
   { to: '/equipes', label: 'Équipes' },
   { to: '/affectation', label: 'Affectation' },
   { to: '/export', label: 'Export' },
   { to: '/preparation', label: 'Préparation' },
+  { to: '/notes', label: 'Bloc-notes' },
 ]
 
 export default function Layout({ children }) {
-  const { activeProfile, disconnect, deleteProfile } = useApp()
+  const { activeProfile, disconnect, deleteProfile, isAdmin } = useApp()
+
+  const items = isAdmin
+    ? [...navItems, { to: '/admin', label: 'Administration' }]
+    : navItems
 
   const switchProfile = () => {
     if (window.confirm(`Quitter le profil « ${activeProfile?.name} » ? (les données sont sauvegardées dans le cloud)`)) {
@@ -39,7 +44,7 @@ export default function Layout({ children }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden lg:flex space-x-1">
-              {navItems.map((item) => (
+              {items.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -82,7 +87,7 @@ export default function Layout({ children }) {
           </div>
         </div>
         <div className="lg:hidden flex overflow-x-auto px-2 pb-2 space-x-1">
-          {navItems.map((item) => (
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

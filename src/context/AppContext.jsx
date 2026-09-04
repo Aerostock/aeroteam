@@ -4,10 +4,22 @@ import * as profileStore from '../lib/profileStore'
 const AppContext = createContext(null)
 
 const ACTIVE_CODE_KEY = 'maintenance-app-active-code'
+const ACTIVE_AT_KEY = 'maintenance-app-active-at'
+const SESSION_MAX_HOURS = 12
+export const ADMIN_CODE = '4172'
 
 function loadActiveCode() {
   try {
-    return localStorage.getItem(ACTIVE_CODE_KEY) || ''
+    const code = localStorage.getItem(ACTIVE_CODE_KEY) || ''
+    const at = localStorage.getItem(ACTIVE_AT_KEY)
+    if (!code || !at) return ''
+    const hours = (Date.now() - Number(at)) / (1000 * 60 * 60)
+    if (hours > SESSION_MAX_HOURS) {
+      localStorage.removeItem(ACTIVE_CODE_KEY)
+      localStorage.removeItem(ACTIVE_AT_KEY)
+      return ''
+    }
+    return code
   } catch (e) {
     return ''
   }
@@ -26,7 +38,7 @@ function dedupeTasks(tasks) {
   return out
 }
 
-const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [], prepTasks: [] }
+const DEFAULT_EMPTY = { tasks: [], teams: [], assignments: {}, members: [], prepTasks: [], notes: [] }
 
 export function AppProvider({ children }) {
   const [code, setCode] = useState(loadActiveCode)
@@ -39,6 +51,7 @@ export function AppProvider({ children }) {
   const [assignments, setAssignments] = useState({})
   const [members, setMembers] = useState([])
   const [prepTasks, setPrepTasks] = useState([])
+  const [notes, setNotes] = useState([])
   const [loaded, setLoaded] = useState(false)
 
   const saveTimer = useRef(null)
@@ -53,6 +66,7 @@ export function AppProvider({ children }) {
       setAssignments({})
       setMembers([])
       setPrepTasks([])
+      setNotes([])
       setLoaded(false)
       return
     }
@@ -68,6 +82,7 @@ export function AppProvider({ children }) {
         if (!profile) {
           // Le code n'existe pas (profil supprimé sur le cloud) : on déconnecte
           localStorage.removeItem(ACTIVE_CODE_KEY)
+          localStorage.removeItem(ACTIVE_AT_KEY)
           setCode('')
           setActiveProfile(null)
           setLoaded(false)
@@ -80,6 +95,7 @@ export function AppProvider({ children }) {
         setAssignments(data.assignments || {})
         setMembers(data.members || [])
         setPrepTasks(data.prepTasks || [])
+        setNotes(data.notes || [])
         setLoaded(true)
       })
       .catch((err) => {
@@ -102,13 +118,13 @@ export function AppProvider({ children }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       profileStore
-        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks })
+        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks, notes })
         .catch((err) => console.error('Sauvegarde Supabase échouée', err))
     }, 600)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks])
+  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes])
 
   const connectProfile = useCallback(async (profileCode) => {
     const c = String(profileCode || '').trim()
@@ -116,6 +132,7 @@ export function AppProvider({ children }) {
     const exists = await profileStore.profileExists(c)
     if (!exists) return { ok: false, error: 'Aucun profil ne correspond à ce code.' }
     localStorage.setItem(ACTIVE_CODE_KEY, c)
+    localStorage.setItem(ACTIVE_AT_KEY, String(Date.now()))
     setCode(c)
     return { ok: true }
   }, [])
@@ -128,6 +145,7 @@ export function AppProvider({ children }) {
       try {
         await profileStore.createProfile(c, String(name).trim(), String(aircraft || '').trim())
         localStorage.setItem(ACTIVE_CODE_KEY, c)
+        localStorage.setItem(ACTIVE_AT_KEY, String(Date.now()))
         setCode(c)
         return { ok: true }
       } catch (err) {
@@ -142,6 +160,7 @@ export function AppProvider({ children }) {
 
   const disconnect = useCallback(() => {
     localStorage.removeItem(ACTIVE_CODE_KEY)
+    localStorage.removeItem(ACTIVE_AT_KEY)
     setCode('')
     setActiveProfile(null)
     setTasks([])
@@ -149,6 +168,7 @@ export function AppProvider({ children }) {
     setAssignments({})
     setMembers([])
     setPrepTasks([])
+    setNotes([])
     setLoaded(false)
     if (saveTimer.current) clearTimeout(saveTimer.current)
   }, [])
@@ -277,6 +297,21 @@ export function AppProvider({ children }) {
     setPrepTasks([])
   }, [])
 
+  const addNote = useCallback((title, content) => {
+    setNotes((prev) => [
+      { id: `note-${Date.now()}`, title, content, createdAt: Date.now() },
+      ...prev,
+    ])
+  }, [])
+
+  const updateNote = useCallback((id, updates) => {
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updates } : n)))
+  }, [])
+
+  const removeNote = useCallback((id) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id))
+  }, [])
+
   const addMember = useCallback((name) => {
     const trimmed = String(name).trim()
     if (!trimmed) return
@@ -304,13 +339,14 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    tasks, teams, assignments, members, prepTasks,
-    activeProfile, code,
+    tasks, teams, assignments, members, prepTasks, notes,
+    activeProfile, code, isAdmin: code === ADMIN_CODE,
     loading, error,
     connectProfile, createProfile, disconnect, deleteProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
     addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,
+    addNote, updateNote, removeNote,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

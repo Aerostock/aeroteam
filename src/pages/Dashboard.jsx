@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { getCategoryColor, getZoneColor, groupTasksByCategory } from '../utils/helpers'
+import { getCategoryColor, getZoneColor, groupTasksByCategory, getFirstName } from '../utils/helpers'
 import {
   ClipboardList,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Printer,
 } from 'lucide-react'
 
 function groupByZone(blockTasks) {
@@ -27,9 +28,7 @@ export default function Dashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState(null)
 
   const ALL_BLOCKS_KEY = 'dashboard-expanded-blocks'
-  const [expandedBlocks, setExpandedBlocks] = useState(() =>
-    JSON.parse(localStorage.getItem(ALL_BLOCKS_KEY) || '[]')
-  )
+  const [expandedBlocks, setExpandedBlocks] = useState(() => [])
 
   useEffect(() => {
     localStorage.setItem(ALL_BLOCKS_KEY, JSON.stringify(expandedBlocks))
@@ -44,6 +43,33 @@ export default function Dashboard() {
   const selectedTeamTasks = selectedTeam
     ? tasks.filter((t) => assignments[t.id] === selectedTeam.id)
     : []
+
+  const handlePrint = () => {
+    const styleId = 'aero-print-style'
+    document.getElementById(styleId)?.remove()
+    const style = document.createElement('style')
+    style.id = styleId
+    style.innerHTML = `
+      @media print {
+        body * { visibility: hidden; }
+        .print-target, .print-target * { visibility: visible; }
+        .print-target {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          max-height: none;
+          overflow: visible;
+        }
+        .print-target [class*="max-h"], .print-target [class*="overflow"] {
+          max-height: none !important;
+          overflow: visible !important;
+        }
+      }
+    `
+    document.head.appendChild(style)
+    window.print()
+  }
 
   const zones = useMemo(() => {
     return [...new Set(tasks.map((t) => t.workArea).filter(Boolean))].sort()
@@ -99,6 +125,7 @@ export default function Dashboard() {
           ...team,
           count: teamTasks.length,
           membersCount: team.members.length,
+          memberFirstNames: team.members.map(getFirstName),
           byBlock,
           perMember: team.members.length
             ? (teamTasks.length / team.members.length).toFixed(1)
@@ -258,6 +285,11 @@ export default function Dashboard() {
                     <tr key={team.id} className="border-b hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedTeamId(team.id)}>
                       <td className="px-4 py-2 font-medium underline decoration-dotted underline-offset-4" style={{ color: team.color }}>
                         {team.name}
+                        {team.memberFirstNames.length > 0 && (
+                          <div className="text-xs font-normal text-slate-500 underline-none pt-0.5">
+                            {team.memberFirstNames.join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2">{team.count}</td>
                       <td className="px-4 py-2">{team.membersCount}</td>
@@ -315,7 +347,7 @@ export default function Dashboard() {
       )}
 
       {selectedTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedTeamId(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print-target" onClick={() => setSelectedTeamId(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-3 flex items-center justify-between border-b" style={{ backgroundColor: selectedTeam.color }}>
               <div className="text-white">
@@ -325,9 +357,18 @@ export default function Dashboard() {
                   {selectedTeam.members.length} membre(s) : {selectedTeam.members.join(', ') || '—'}
                 </p>
               </div>
-              <button onClick={() => setSelectedTeamId(null)} className="text-white/80 hover:text-white">
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+                  title="Imprimer la charge de l'équipe"
+                >
+                  <Printer className="h-4 w-4" /> Imprimer
+                </button>
+                <button onClick={() => setSelectedTeamId(null)} className="text-white/80 hover:text-white">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
             <div className="overflow-y-auto p-4">
               {selectedTeamTasks.length === 0 && (

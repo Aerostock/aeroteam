@@ -8,10 +8,10 @@ export default function Taches() {
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedBlocks, setSelectedBlocks] = useState([])
-  const [collapsedZones, setCollapsedZones] = useState([])
+  const [expandedZones, setExpandedZones] = useState([])
 
   const toggleZone = (zone) => {
-    setCollapsedZones((prev) =>
+    setExpandedZones((prev) =>
       prev.includes(zone) ? prev.filter((z) => z !== zone) : [...prev, zone]
     )
   }
@@ -158,15 +158,15 @@ export default function Taches() {
             zoneTasks.some((task) => assignments[task.id] === t.id)
           )
           const memberNames = [...new Set(assignedTeams.flatMap((t) => t.members))]
-          const collapsed = collapsedZones.includes(zone)
+          const expanded = expandedZones.includes(zone)
           return (
             <div key={zone} className="bg-white rounded-xl shadow overflow-hidden">
               <div className="px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between flex-wrap gap-2" style={{ backgroundColor: zoneColor }}>
                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleZone(zone)}>
-                  {collapsed ? (
-                    <ChevronRight className="h-5 sm:h-6 w-5 sm:w-6 text-white" />
-                  ) : (
+                  {expanded ? (
                     <ChevronDown className="h-5 sm:h-6 w-5 sm:w-6 text-white" />
+                  ) : (
+                    <ChevronRight className="h-5 sm:h-6 w-5 sm:w-6 text-white" />
                   )}
                   <div>
                     <h2 className="font-bold text-white text-base sm:text-lg">
@@ -191,7 +191,7 @@ export default function Taches() {
                   })}
                 </div>
               </div>
-              {!collapsed && (
+              {expanded && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[640px]">
                   <thead>
