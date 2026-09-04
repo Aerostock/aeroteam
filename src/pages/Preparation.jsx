@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useApp } from '../context/AppContext'
-import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor } from '../utils/helpers'
+import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
 import {
   Upload,
   FileSpreadsheet,
@@ -376,7 +376,7 @@ export default function Preparation() {
                     <td className="px-4 py-2 font-medium max-w-xs truncate" title={task.description}>{task.description}</td>
                     <td className="px-4 py-2">
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
-                        {task.taskType || '-'}
+                        {getCategoryLabel(task.taskType) || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-2 max-w-[150px] truncate" title={task.workArea}>{task.workArea || '-'}</td>
@@ -540,7 +540,7 @@ export default function Preparation() {
                         <ChevronDown className="h-5 w-5 text-white" />
                       )}
                       <h2 className="font-bold text-white text-lg">
-                        {blk}{' '}
+                        {getCategoryLabel(blk)}{' '}
                         <span className="font-normal opacity-80">({count})</span>
                       </h2>
                     </div>
@@ -561,19 +561,19 @@ export default function Preparation() {
                         <PocketSelect
                           variant="dark"
                           pockets={pockets}
-                          placeholder={`Affecter le bloc ${blk}...`}
+                          placeholder={`Affecter le bloc ${getCategoryLabel(blk)}...`}
                           onSelect={(pid) => assignBlockToPocket(pid, blk)}
                         />
                       </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (window.confirm(`Supprimer tout le bloc ${blk} (${count} lignes) ?`)) {
+                          if (window.confirm(`Supprimer tout le bloc ${getCategoryLabel(blk)} (${count} lignes) ?`)) {
                             removePrepTasksByBlock(blk)
                           }
                         }}
                         className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded"
-                        title={`Supprimer le bloc ${blk}`}
+                        title={`Supprimer le bloc ${getCategoryLabel(blk)}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -722,7 +722,7 @@ export default function Preparation() {
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white"
                       style={{ backgroundColor: getCategoryColor(blk) }}
                     >
-                      {blk} · {printByBlock[blk].count} tâche(s) ·{' '}
+                      {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s) ·{' '}
                       {formatHours(printByBlock[blk].totalHours)} h
                     </span>
                   ))}
@@ -775,7 +775,7 @@ export default function Preparation() {
                               className="w-2.5 h-2.5 rounded-full"
                               style={{ backgroundColor: getCategoryColor(blk) }}
                             />
-                            <span className="text-sm font-semibold">{blk}</span>
+                            <span className="text-sm font-semibold">{getCategoryLabel(blk)}</span>
                           </span>
                           <span className="text-xs text-slate-500">
                             {printByBlock[blk].count} · {formatHours(printByBlock[blk].totalHours)} h
@@ -801,7 +801,7 @@ export default function Preparation() {
                           style={{ backgroundColor: getCategoryColor(blk) }}
                         >
                           <span>
-                            Bloc {blk} · {printByBlock[blk].count} tâche(s)
+                            Bloc {getCategoryLabel(blk)} · {printByBlock[blk].count} tâche(s)
                           </span>
                           <span className="opacity-90 font-normal text-sm">
                             {formatHours(printByBlock[blk].totalHours)} h

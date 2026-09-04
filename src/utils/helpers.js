@@ -9,6 +9,15 @@ export const CATEGORY_COLORS = {
 
 export const CATEGORIES = Object.keys(CATEGORY_COLORS)
 
+// Libellés d'affichage des types de tâches (blocs)
+const CATEGORY_LABELS = {
+  CORR: 'Found Fault',
+}
+
+export function getCategoryLabel(type) {
+  return CATEGORY_LABELS[type] || type || ''
+}
+
 export const SHIFT_COLORS = {
   'MERCREDI MATIN': '#10b981',
   'MERCREDI SOIR': '#6366f1',

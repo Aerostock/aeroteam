@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useApp } from '../context/AppContext'
-import { detectColumns, parseExcelRows, getCategoryColor, CATEGORIES } from '../utils/helpers'
+import { detectColumns, parseExcelRows, getCategoryColor, getCategoryLabel, CATEGORIES } from '../utils/helpers'
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Filter } from 'lucide-react'
 
 export default function ImportExcel() {
@@ -78,7 +78,7 @@ export default function ImportExcel() {
         <div className="text-sm text-sky-700 space-y-1">
           <p>• <strong>Skills (colonne F)</strong> : toutes les valeurs commençant par CABB</p>
           <p>• <strong>MTX Status (colonne G)</strong> : uniquement ACTV et PAUSE</p>
-          <p>• <strong>Task Type (colonne H)</strong> : tous les blocs (JIC, CORR, MPC, ADHOC, EO)</p>
+          <p>• <strong>Task Type (colonne H)</strong> : tous les blocs (JIC, Found Fault, MPC, ADHOC, EO)</p>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export default function ImportExcel() {
                       </td>
                       <td className="px-4 py-2">
                         <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: color }}>
-                          {task.taskType}
+                          {getCategoryLabel(task.taskType)}
                         </span>
                       </td>
                       <td className="px-4 py-2 max-w-[150px] truncate" title={task.workArea}>{task.workArea}</td>
@@ -227,7 +227,7 @@ export default function ImportExcel() {
                   className="inline-block px-3 py-1 rounded-full text-xs font-semibold text-white"
                   style={{ backgroundColor: getCategoryColor(cat) }}
                 >
-                  {cat} : {tasks.filter((t) => t.taskType === cat).length}
+                  {getCategoryLabel(cat)} : {tasks.filter((t) => t.taskType === cat).length}
                 </span>
               ))}
             </div>

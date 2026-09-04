@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { getCategoryColor, getZoneColor, groupTasksByCategory, getFirstName } from '../utils/helpers'
+import { getCategoryColor, getZoneColor, groupTasksByCategory, getFirstName, getCategoryLabel } from '../utils/helpers'
 import {
   ClipboardList,
   CheckCircle2,
@@ -171,7 +171,7 @@ export default function Dashboard() {
                   return (
                     <div key={block}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">{block}</span>
+                        <span className="font-medium">{getCategoryLabel(block)}</span>
                         <span className="text-slate-500">{count} ({pct}%)</span>
                       </div>
                       <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -208,7 +208,7 @@ export default function Dashboard() {
                           <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" />
                         )}
                         <span className="font-semibold text-sm" style={{ color }}>
-                          {block}
+                          {getCategoryLabel(block)}
                         </span>
                         <span className="text-xs text-slate-500">({blockTasks.length} tâche(s))</span>
                       </div>
@@ -240,7 +240,7 @@ export default function Dashboard() {
                                       </span>
                                       {task.taskType && (
                                         <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${getCategoryColor(task.taskType)}22`, color: getCategoryColor(task.taskType) }}>
-                                          {task.taskType}
+                                          {getCategoryLabel(task.taskType)}
                                         </span>
                                       )}
                                       {task.registration && (
@@ -398,7 +398,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
-                            {task.taskType || '—'}
+                            {getCategoryLabel(task.taskType) || '—'}
                           </span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">

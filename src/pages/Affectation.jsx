@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { getCategoryColor, getZoneColor } from '../utils/helpers'
+import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
 import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight } from 'lucide-react'
 
 export default function Affectation() {
@@ -145,7 +145,7 @@ export default function Affectation() {
                     color: active ? '#fff' : color,
                   }}
                 >
-                  {block} ({count})
+                  {getCategoryLabel(block)} ({count})
                 </button>
               )
             })}
@@ -188,7 +188,7 @@ export default function Affectation() {
                       <ChevronRight className="h-5 w-5 text-white" />
                     )}
                     <h3 className="font-bold text-white text-sm">
-                      Bloc {block} <span className="font-normal opacity-80">({blockTasks.length})</span>
+                      Bloc {getCategoryLabel(block)} <span className="font-normal opacity-80">({blockTasks.length})</span>
                     </h3>
                   </div>
                   <div className="flex items-center gap-2">

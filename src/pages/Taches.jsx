@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { getZoneColor, getCategoryColor } from '../utils/helpers'
+import { getZoneColor, getCategoryColor, getCategoryLabel } from '../utils/helpers'
 import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 
 export default function Taches() {
@@ -119,16 +119,16 @@ export default function Taches() {
                       color: active ? '#fff' : color,
                     }}
                   >
-                    {block} ({count})
+                    {getCategoryLabel(block)} ({count})
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Supprimer tout le bloc ${block} (${count} tâches) ?`)) {
+                      if (window.confirm(`Supprimer tout le bloc ${getCategoryLabel(block)} (${count} tâches) ?`)) {
                         removeTasksByBlock(block)
                       }
                     }}
                     className="text-slate-400 hover:text-red-600 transition-colors"
-                    title={`Supprimer le bloc ${block}`}
+                    title={`Supprimer le bloc ${getCategoryLabel(block)}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -185,7 +185,7 @@ export default function Taches() {
                     const n = zoneTasks.filter((t) => t.taskType === blk).length
                     return (
                       <span key={blk} className="bg-white/25 px-2 py-0.5 rounded-full text-xs font-semibold text-white">
-                        {blk} · {n}
+                        {getCategoryLabel(blk)} · {n}
                       </span>
                     )
                   })}
@@ -219,7 +219,7 @@ export default function Taches() {
                           </td>
                           <td className="px-4 py-2">
                             <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
-                              {task.taskType || '-'}
+                              {getCategoryLabel(task.taskType) || '-'}
                             </span>
                           </td>
                           <td className="px-4 py-2 text-xs">{task.skills || '-'}</td>
