@@ -34,6 +34,12 @@ function injectPrintStyle() {
         width: 100%;
         max-height: none;
         overflow: visible;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .print-target, .print-target * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       .print-target [class*="max-h"], .print-target [class*="overflow"] {
         max-height: none !important;
@@ -179,6 +185,21 @@ export default function Preparation() {
       .filter((t) => (t.taskType || 'AUTRE') === block && (t.workArea || 'Sans zone') === zone)
       .map((t) => t.id)
     assignToPocket(pocketId, ids)
+  }
+
+  // { pocketId: nbTaches } pour un ensemble de tâches donné
+  const pocketCounts = (scopeIds) => {
+    const out = {}
+    pockets.forEach((p) => {
+      const n = scopeIds.filter((id) => p.taskIds.includes(id)).length
+      if (n) out[p.id] = n
+    })
+    return out
+  }
+
+  const removeScopeFromPocket = (pocketId, scopeIds) => {
+    const target = scopeIds.filter((id) => pocketById[pocketId]?.taskIds.includes(id))
+    if (target.length) removeTasksFromPocket(pocketId, target)
   }
 
   const pocketById = useMemo(() => {
@@ -501,6 +522,10 @@ export default function Preparation() {
               const color = getCategoryColor(blk)
               const isCollapsed = collapsed.includes(blk)
               const zoneNames = Object.keys(zones)
+              const blockTaskIds = prepTasks
+                .filter((t) => (t.taskType || 'AUTRE') === blk)
+                .map((t) => t.id)
+              const blockCounts = pocketCounts(blockTaskIds)
               return (
                 <div key={blk} className="bg-white rounded-xl shadow overflow-hidden">
                   <div
@@ -519,13 +544,19 @@ export default function Preparation() {
                         <span className="font-normal opacity-80">({count})</span>
                       </h2>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className="bg-white/25 px-2.5 py-1 rounded-full text-xs font-semibold text-white">
                         {formatHours(totalHours)} h
                       </span>
                       <span className="hidden sm:block text-white/90 text-sm">
                         {zoneNames.length} zone{zoneNames.length > 1 ? 's' : ''}
                       </span>
+                      <PocketChips
+                        dark
+                        counts={blockCounts}
+                        pocketById={pocketById}
+                        onRemove={(pid) => removeScopeFromPocket(pid, blockTaskIds)}
+                      />
                       <div onClick={(e) => e.stopPropagation()}>
                         <PocketSelect
                           variant="dark"
@@ -553,7 +584,7 @@ export default function Preparation() {
                       {zoneNames.map((zone) => (
                         <div key={zone} className="py-2">
                           <div
-                            className="px-4 sm:px-5 py-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
+                            className="px-4 sm:px-5 py-1.5 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide"
                             style={{ color: getZoneColor(zone, allZones) }}
                           >
                             <span
@@ -564,6 +595,13 @@ export default function Preparation() {
                             <span className="text-slate-400 font-normal normal-case">
                               ({zones[zone].length})
                             </span>
+                            <PocketChips
+                              counts={pocketCounts(zones[zone].map((t) => t.id))}
+                              pocketById={pocketById}
+                              onRemove={(pid) =>
+                                removeScopeFromPocket(pid, zones[zone].map((t) => t.id))
+                              }
+                            />
                             <span className="ml-auto">
                               <PocketSelect
                                 pockets={pockets}
@@ -592,10 +630,16 @@ export default function Preparation() {
                                       {inPocket.map((p) => (
                                         <span
                                           key={p.id}
-                                          className="px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[10px] font-semibold"
-                                          title={`Dans la pochette « ${p.name} »`}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-300 rounded text-[10px] font-semibold"
+                                          title={`Dans la pochette « ${p.name} » — cliquez pour retirer`}
                                         >
                                           {p.name}
+                                          <button
+                                            onClick={() => removeTasksFromPocket(p.id, [task.id])}
+                                            className="text-sky-400 hover:text-red-600"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
                                         </span>
                                       ))}
                                     </span>
@@ -664,12 +708,26 @@ export default function Preparation() {
               </div>
             </div>
 
-            <div className="hidden print:block px-5 py-4 border-b border-slate-300">
+            <div className="hidden print:block px-5 py-4 border-b-2 border-slate-300">
               <h1 className="text-2xl font-bold text-slate-900">{printPocket.name}</h1>
               <p className="text-sm text-slate-500 mt-1">
                 Pochette virtuelle · {printTasks.length} tâche(s) sélectionnée(s) ·{' '}
                 {formatHours(printTotalHours)} h · {new Date().toLocaleDateString('fr-FR')}
               </p>
+              {Object.keys(printByBlock).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {Object.keys(printByBlock).map((blk) => (
+                    <span
+                      key={blk}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white"
+                      style={{ backgroundColor: getCategoryColor(blk) }}
+                    >
+                      {blk} · {printByBlock[blk].count} tâche(s) ·{' '}
+                      {formatHours(printByBlock[blk].totalHours)} h
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0">
@@ -750,72 +808,59 @@ export default function Preparation() {
                           </span>
                         </div>
                         <div className="border border-t-0 border-slate-200 rounded-b-md overflow-hidden">
-                          <table className="w-full text-sm">
-                            <thead className="bg-slate-50">
-                              <tr className="text-left">
-                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold w-8">
-                                  <input
-                                    type="checkbox"
-                                    className="print-hide"
-                                    checked={printByBlock[blk].zones
-                                      ? Object.values(printByBlock[blk].zones).flat().every((t) => selectedTasks.includes(t.id))
-                                      : false}
-                                    onChange={() => {
-                                      const ids = Object.values(printByBlock[blk].zones).flat().map((t) => t.id)
-                                      setSelectedTasks((prev) =>
-                                        ids.every((id) => prev.includes(id))
-                                          ? prev.filter((id) => !ids.includes(id))
-                                          : [...new Set([...prev, ...ids])]
-                                      )
-                                    }}
-                                  />
-                                </th>
-                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold">N°</th>
-                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold">Sous-tâche</th>
-                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold hidden sm:table-cell print:table-cell">Zone</th>
-                                <th className="px-3 py-1.5 text-xs text-slate-500 font-semibold w-16">H</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {Object.keys(printByBlock[blk].zones).map((zone) =>
-                                printByBlock[blk].zones[zone].map((t) => (
-                                  <tr key={t.id} className="hover:bg-slate-50">
-                                    <td className="px-3 py-1.5">
-                                      <input
-                                        type="checkbox"
-                                        className="print-hide"
-                                        checked={selectedTasks.includes(t.id)}
-                                        onChange={() =>
-                                          setSelectedTasks((prev) =>
-                                            prev.includes(t.id)
-                                              ? prev.filter((id) => id !== t.id)
-                                              : [...prev, t.id]
-                                          )
-                                        }
-                                      />
-                                    </td>
-                                    <td className="px-3 py-1.5 font-mono text-xs text-slate-500">{t.seq || '-'}</td>
-                                    <td className="px-3 py-1.5 text-slate-800">{t.description}</td>
-                                    <td className="px-3 py-1.5 text-xs text-slate-500 hidden sm:table-cell print:table-cell">
-                                      {zone}
-                                    </td>
-                                    <td className="px-3 py-1.5 text-right text-slate-700">
-                                      {t.scheduledHours ?? '—'}
-                                    </td>
-                                    <td className="px-2 py-1.5 text-right print:hidden">
-                                      <button
-                                        onClick={() => removeTasksFromPocket(printPocket.id, [t.id])}
-                                        className="text-slate-300 hover:text-red-600 p-1 rounded"
-                                        title="Retirer cette tâche de la pochette"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
+                          {Object.keys(printByBlock[blk].zones).map((zone) => (
+                            <div key={zone} className="print-pocket-zone">
+                              <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center justify-between gap-2">
+                                <span>
+                                  {zone} <span className="font-normal text-slate-400 normal-case">({printByBlock[blk].zones[zone].length})</span>
+                                </span>
+                                <span className="font-semibold text-slate-500 normal-case">
+                                  {formatHours(
+                                    printByBlock[blk].zones[zone].reduce((sum, t) => {
+                                      const hh = parseFloat(t.scheduledHours)
+                                      return sum + (isNaN(hh) ? 0 : hh)
+                                    }, 0)
+                                  )}{' '}
+                                  h
+                                </span>
+                              </div>
+                              <table className="w-full text-sm">
+                                <tbody className="divide-y divide-slate-100">
+                                  {printByBlock[blk].zones[zone].map((t) => (
+                                    <tr key={t.id} className="hover:bg-slate-50">
+                                      <td className="px-3 py-1.5 w-8 print:hidden">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedTasks.includes(t.id)}
+                                          onChange={() =>
+                                            setSelectedTasks((prev) =>
+                                              prev.includes(t.id)
+                                                ? prev.filter((id) => id !== t.id)
+                                                : [...prev, t.id]
+                                            )
+                                          }
+                                        />
+                                      </td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-slate-500 w-12">{t.seq || '-'}</td>
+                                      <td className="px-3 py-1.5 text-slate-800">{t.description}</td>
+                                      <td className="px-3 py-1.5 text-right text-slate-700 w-14">
+                                        {t.scheduledHours ?? '—'}
+                                      </td>
+                                      <td className="px-2 py-1.5 text-right w-8 print:hidden">
+                                        <button
+                                          onClick={() => removeTasksFromPocket(printPocket.id, [t.id])}
+                                          className="text-slate-300 hover:text-red-600 p-1 rounded"
+                                          title="Retirer cette tâche de la pochette"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -847,23 +892,56 @@ function PocketSelect({ pockets, placeholder, onSelect, variant = 'light', compa
         }}
         className={
           compact
-            ? 'border border-slate-300 rounded-md px-1.5 py-1 text-xs text-slate-500 max-w-[120px] bg-white'
+            ? 'border border-slate-300 rounded-md px-1.5 py-1 text-xs text-slate-700 max-w-[120px] bg-white'
             : dark
-              ? 'border border-white/50 rounded-md px-2 py-1.5 text-xs font-medium text-white bg-white/20 hover:bg-white/30 max-w-[190px]'
-              : 'border border-slate-300 rounded-md px-2 py-1.5 text-xs text-slate-600 bg-white hover:border-sky-400 max-w-[190px]'
+              ? 'border border-white/60 rounded-md px-2 py-1.5 text-xs font-medium bg-white text-slate-800 hover:border-white max-w-[200px]'
+              : 'border border-slate-300 rounded-md px-2 py-1.5 text-xs font-medium text-slate-700 bg-white hover:border-sky-400 max-w-[200px]'
         }
-        style={{ colorScheme: 'light' }}
         title={pockets.length === 0 ? "Créez d'abord une pochette" : placeholder}
       >
-        <option value="">
+        <option value="" className="text-slate-400">
           {pockets.length === 0 ? '— Aucune pochette —' : placeholder}
         </option>
         {pockets.map((p) => (
-          <option key={p.id} value={p.id}>
+          <option key={p.id} value={p.id} className="text-slate-800 bg-white font-semibold">
             {p.name}
           </option>
         ))}
       </select>
     </div>
+  )
+}
+
+function PocketChips({ counts, pocketById, onRemove, dark }) {
+  const entries = Object.entries(counts)
+  if (entries.length === 0) return null
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {entries.map(([pid, n]) => {
+        const p = pocketById[pid]
+        if (!p) return null
+        return (
+          <span
+            key={pid}
+            className={
+              dark
+                ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white bg-white/20 border border-white/50'
+                : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-sky-800 bg-sky-50 border border-sky-300'
+            }
+            title={`Dans la pochette « ${p.name} » (${n}) — cliquez pour retirer`}
+          >
+            <span className={dark ? 'opacity-90' : ''}>{p.name}</span>
+            <span className={dark ? 'opacity-70' : 'text-sky-500'}>({n})</span>
+            <button
+              onClick={() => onRemove(pid)}
+              className="hover:text-red-500 -mr-0.5"
+              title={`Retirer de la pochette « ${p.name} »`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        )
+      })}
+    </span>
   )
 }
