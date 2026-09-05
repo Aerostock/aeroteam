@@ -4,7 +4,7 @@ import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpe
 import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2 } from 'lucide-react'
 
 export default function Affectation() {
-  const { tasks, teams, assignments, assignTask, unassignTask, removeTask } = useApp()
+  const { tasks, teams, assignments, assignTask, unassignTask } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
@@ -533,13 +533,9 @@ export default function Affectation() {
                                       {t.description}
                                     </span>
                                     <button
-                                      onClick={() => {
-                                        if (window.confirm(`Supprimer la tâche ${t.seq ? `n° ${t.seq} ` : ''}?`)) {
-                                          removeTask(t.id)
-                                        }
-                                      }}
+                                      onClick={() => manualUnassign(t.id)}
                                       className="text-slate-400 hover:text-red-600 shrink-0"
-                                      title="Supprimer cette tâche (elle disparaît du planning)"
+                                      title="Retirer de l'équipe (la tâche redevient non affectée)"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
