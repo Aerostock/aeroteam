@@ -17,9 +17,28 @@ export default function Affectation() {
   const [autoExcludedZones, setAutoExcludedZones] = useState([])
 
   const toggleAutoBlock = (block) => {
-    setAutoSelectedBlocks((prev) =>
-      prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
-    )
+    const isSelected = autoSelectedBlocks.includes(block)
+    if (isSelected) {
+      setAutoExcludedZones((prev) => prev.filter((k) => !k.startsWith(`${block}::`)))
+      setAutoSelectedBlocks((prev) => prev.filter((b) => b !== block))
+    } else {
+      const zoneKeys = Object.keys(allBlockZones[block] || {}).map((z) =>
+        zoneScopeKey(block, z)
+      )
+      setAutoExcludedZones((prev) => [...new Set([...prev, ...zoneKeys])])
+      setAutoSelectedBlocks((prev) => [...prev, block])
+    }
+  }
+
+  const allAutoBlocksSelected = autoSelectedBlocks.length === blocks.length
+
+  const toggleAutoAll = () => {
+    if (allAutoBlocksSelected) {
+      setAutoSelectedBlocks([])
+    } else {
+      setAutoSelectedBlocks([...blocks])
+      setAutoExcludedZones([])
+    }
   }
 
   const zoneScopeKey = (block, zone) => `${block}::${zone}`
@@ -31,19 +50,18 @@ export default function Affectation() {
     )
   }
 
-  // Sous-blocs (zones) des blocs sélectionnés, avec leur nombre
-  const blockZones = useMemo(() => {
+  // Sous-blocs (zones) par bloc avec leur nombre de tâches sans équipe
+  const allBlockZones = useMemo(() => {
     const map = {}
     tasks.forEach((t) => {
       if (assignments[t.id]) return
       const block = t.taskType || 'AUTRE'
-      if (!autoSelectedBlocks.includes(block)) return
       const zone = t.workArea || 'Autre'
       if (!map[block]) map[block] = {}
       map[block][zone] = (map[block][zone] || 0) + 1
     })
     return map
-  }, [tasks, assignments, autoSelectedBlocks])
+  }, [tasks, assignments])
 
   const autoScopeTasks = useMemo(
     () =>
@@ -240,9 +258,11 @@ export default function Affectation() {
                 <Wand2 className="h-4 w-4 text-sky-600" /> Répartition automatique
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {autoScopeCount === 0
-                  ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche tant que vous n’avez pas choisi de blocs.'
-                  : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.`}
+                {autoSelectedBlocks.length === 0
+                  ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche. Cochez d’abord un bloc.'
+                  : autoScopeCount === 0
+                    ? 'Bloc(s) sélectionné(s) mais aucun sous-bloc coché : cochez les sous-blocs voulus (ou « Tous »).'
+                    : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.`}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -297,7 +317,7 @@ export default function Affectation() {
               {blocks
                 .filter((b) => autoSelectedBlocks.includes(b))
                 .map((block) => {
-                  const zoneEntries = Object.entries(blockZones[block] || {}).sort((a, b) =>
+                  const zoneEntries = Object.entries(allBlockZones[block] || {}).sort((a, b) =>
                     a[0].localeCompare(b[0])
                   )
                   if (!zoneEntries.length) return null
@@ -322,8 +342,8 @@ export default function Affectation() {
                             }}
                             title={
                               active
-                                ? 'Cliquer pour exclure ce sous-bloc'
-                                : 'Cliquer pour inclure ce sous-bloc'
+                                ? 'Cliquer pour retirer ce sous-bloc de la répartition'
+                                : 'Cliquer pour inclure ce sous-bloc dans la répartition'
                             }
                           >
                             {zone} ({count})
@@ -347,17 +367,8 @@ export default function Affectation() {
                   )
                 })}
               {blocks.length > 1 && (
-                <button
-                  onClick={() =>
-                    setAutoSelectedBlocks(
-                      autoSelectedBlocks.length === blocks.length ? [] : [...blocks]
-                    )
-                  }
-                  className="text-xs text-sky-600 hover:underline"
-                >
-                  {autoSelectedBlocks.length === blocks.length
-                    ? 'Tout désélectionner'
-                    : 'Tout sélectionner'}
+                <button onClick={toggleAutoAll} className="text-xs text-sky-600 hover:underline">
+                  {allAutoBlocksSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
                 </button>
               )}
             </div>
