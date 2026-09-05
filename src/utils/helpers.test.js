@@ -1,0 +1,178 @@
+import { describe, it, expect, vi } from 'vitest'
+import {
+  makeId,
+  dedupeAndMerge,
+  normalizeHeader,
+  detectColumns,
+  filterRow,
+  parseExcelRows,
+  getCategoryColor,
+  getCategoryLabel,
+  getFirstName,
+  groupTasksByCategory,
+} from './helpers'
+
+describe('makeId', () => {
+  it('préfixe les identifiants', () => {
+    expect(makeId('task')).toMatch(/^task-/)
+    expect(makeId()).not.toMatch(/^task-/)
+    expect(makeId()).toHaveLength(36)
+  })
+
+  it('produit des identifiants uniques', () => {
+    const ids = new Set(Array.from({ length: 1000 }, (_, i) => makeId('x' + i)))
+    expect(ids.size).toBe(1000)
+  })
+
+  it('retombe sur un id de secours si crypto.randomUUID est indisponible', () => {
+    const original = crypto.randomUUID
+    vi.stubGlobal('crypto', { randomUUID: undefined })
+    const id = makeId('task')
+    vi.unstubAllGlobals()
+    expect(typeof original).toBe('function')
+    expect(id).toMatch(/^task-/)
+    expect(id.length).toBeGreaterThan(5)
+  })
+})
+
+describe('dedupeAndMerge', () => {
+  it('ajoute les nouvelles tâches et ignore les doublons par id', () => {
+    const prev = [{ id: 'a', seq: '1', description: 'existant' }]
+    const result = dedupeAndMerge(prev, [
+      { id: 'a', seq: '99', description: 'doublon id' },
+      { id: 'b', seq: '2', description: 'nouveau' },
+    ])
+    expect(result.map((t) => t.id)).toEqual(['a', 'b'])
+    expect(result[0].description).toBe('existant')
+  })
+
+  it('ignore les doublons par seq déjà présents dans la liste', () => {
+    const result = dedupeAndMerge(
+      [{ id: 'old-1', seq: '5', description: 'déjà présent' }],
+      [
+        { seq: '5', description: 'doublon seq' },
+        { seq: '', description: 'sans seq' },
+      ]
+    )
+    expect(result.map((t) => t.description)).toEqual(['déjà présent', 'sans seq'])
+  })
+
+  it('génère un id manquant', () => {
+    const result = dedupeAndMerge([], [{ seq: '1', description: 'x' }])
+    expect(result[0].id).toMatch(/^task-/)
+  })
+})
+
+describe('normalizeHeader', () => {
+  it('minuscules, sans accents, sans espaces', () => {
+    expect(normalizeHeader('Task_Name')).toBe('task_name')
+    expect(normalizeHeader('Équipage')).toBe('equipage')
+    expect(normalizeHeader('  N°  ')).toBe('n°')
+  })
+})
+
+describe('detectColumns', () => {
+  it('détecte les colonnes typiques du Workpackage Report (noms soulignés)', () => {
+    const headers = [
+      'Seq._Nr.',
+      'Task_Name',
+      'Skills',
+      'MTX_Status',
+      'Task_Type',
+      'Work_Area',
+      'Phase',
+      'Shift',
+      'Scheduled_Start_Date',
+      'Scheduled_End_Date',
+      'Scheduled_Hours',
+      'Aircraft_Registration',
+      'Work_Package_Barcode',
+    ]
+    const detected = detectColumns(headers)
+    expect(detected.description).toBe(1)
+    expect(detected.seq).toBe(0)
+    expect(detected.skills).toBe(2)
+    expect(detected.mtxStatus).toBe(3)
+    expect(detected.taskType).toBe(4)
+    expect(detected.workArea).toBe(5)
+    expect(detected.scheduledHours).toBe(10)
+    expect(detected.registration).toBe(11)
+    expect(detected.workBarcode).toBe(12)
+  })
+})
+
+describe('filterRow / parseExcelRows', () => {
+  const columns = detectColumns([
+    'Seq._Nr.',
+    'Task_Name',
+    'Skills',
+    'MTX_Status',
+    'Task_Type',
+    'Work_Area',
+    'Scheduled_Hours',
+    'Aircraft_Registration',
+  ])
+
+  it('garde les lignes CABB* avec statut ACTV ou PAUSE', () => {
+    const kept = parseExcelRows(
+      [
+        ['1', 'Tâche A', 'CABB1', 'ACTV', 'JIC', 'WING L', '2', 'F-GKXT'],
+        ['2', 'Tâche B', 'ELEC', 'ACTV', 'JIC', 'WING L', '1', 'F-GKXT'],
+        ['3', 'Tâche C', 'CABB2', 'CLSD', 'MPC', 'ENG', '3', 'F-GKXT'],
+        ['4', 'Tâche D', 'CABB3', 'PAUSE', 'EO', 'LEG', '1.5', 'F-GKXT'],
+      ],
+      columns
+    )
+    expect(kept.map((t) => t.seq)).toEqual(['1', '4'])
+  })
+
+  it('ignore les lignes sans description ni barcode', () => {
+    const kept = parseExcelRows([['5', '', 'CABB1', 'ACTV', 'JIC', 'WING L', '2', 'F-GKXT']], columns)
+    expect(kept).toHaveLength(0)
+  })
+
+  it('utilise le barcode de tâche comme description de secours', () => {
+    const kept = parseExcelRows(
+      [['6', '', 'CABB1', 'ACTV', 'JIC', 'WING L', '2', 'F-GKXT', 'WP-1234']],
+      { ...columns, taskBarcode: 8 }
+    )
+    expect(kept).toHaveLength(1)
+    expect(kept[0].description).toBe('WP-1234')
+  })
+})
+
+describe('catégories', () => {
+  it('colore les blocs connus et retombe sur AUTRE', () => {
+    expect(getCategoryColor('JIC')).toBe('#0ea5e9')
+    expect(getCategoryColor('INCONNU')).toBe('#64748b')
+  })
+
+  it('traduit le label Found Fault', () => {
+    expect(getCategoryLabel('CORR')).toBe('Found Fault')
+    expect(getCategoryLabel('JIC')).toBe('JIC')
+  })
+})
+
+describe('getFirstName', () => {
+  it('extrait le prénom derrière la civilité', () => {
+    expect(getFirstName('Mr Farid Ayad')).toBe('Farid')
+    expect(getFirstName('Mme Lea Damagnez')).toBe('Lea')
+    expect(getFirstName('Jean Dupont')).toBe('Jean')
+    expect(getFirstName('')).toBe('')
+  })
+})
+
+describe('groupTasksByCategory', () => {
+  it('groupe par type de tâche', () => {
+    const tasks = [
+      { id: '1', taskType: 'JIC' },
+      { id: '2', taskType: 'JIC' },
+      { id: '3', taskType: 'EO' },
+      { id: '4' },
+    ]
+    const groups = groupTasksByCategory(tasks)
+    expect(groups.JIC).toHaveLength(2)
+    expect(groups.EO).toHaveLength(1)
+    expect(groups.AUTRE).toHaveLength(1)
+  })
+})
