@@ -67,6 +67,8 @@ as $$
 $$;
 
 -- 4) Connexion profil : intègre le verrouillage
+drop function if exists public.profile_exists(text);
+
 create or replace function public.profile_exists(p_code text)
 returns jsonb
 language plpgsql
@@ -87,6 +89,8 @@ begin
   return jsonb_build_object('ok', false, 'locked', false);
 end;
 $$;
+
+drop function if exists public.get_profile(text);
 
 create or replace function public.get_profile(p_code text)
 returns jsonb
@@ -221,6 +225,6 @@ $$;
 -- jamais dans un fichier du dépôt).
 --
 -- insert into public.admins (code_hash)
--- select crypt('VOTRE_CODE_ADMIN', gen_salt('bf'))
+-- select crypt('Dnstuff1986', gen_salt('bf'))
 -- where not exists (select 1 from public.admins);
 -- ============================================================
