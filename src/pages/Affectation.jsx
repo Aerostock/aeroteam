@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
-import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2 } from 'lucide-react'
 
 export default function Affectation() {
   const { tasks, teams, assignments, assignTask, unassignTask } = useApp()
@@ -9,6 +9,65 @@ export default function Affectation() {
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
   const [expandedZones, setExpandedZones] = useState([])
+  const [lastAutoAssignments, setLastAutoAssignments] = useState(null)
+
+  const unassignedCount = useMemo(
+    () => tasks.filter((t) => !assignments[t.id]).length,
+    [tasks, assignments]
+  )
+
+  // Répartition automatique : blocs entiers, équilibrés par nombre de tâches,
+  // Found Fault (CORR) distribué en priorité
+  const autoAssign = () => {
+    if (!teams.length) return
+    const unassigned = tasks.filter((t) => !assignments[t.id])
+    if (!unassigned.length) return
+
+    const snapshot = { ...assignments }
+    const byBlock = {}
+    unassigned.forEach((t) => {
+      const block = t.taskType || 'AUTRE'
+      if (!byBlock[block]) byBlock[block] = []
+      byBlock[block].push(t)
+    })
+
+    const blockOrder = Object.keys(byBlock).sort((a, b) => {
+      const pa = a === 'CORR' ? 0 : 1
+      const pb = b === 'CORR' ? 0 : 1
+      if (pa !== pb) return pa - pb
+      return byBlock[b].length - byBlock[a].length
+    })
+
+    const teamCount = (teamId) =>
+      Object.values({ ...assignments, ...applied }).filter((id) => id === teamId).length
+
+    const applied = {}
+    blockOrder.forEach((block) => {
+      const target = [...teams].sort(
+        (t1, t2) => teamCount(t1.id) - teamCount(t2.id)
+      )[0]
+      byBlock[block].forEach((t) => {
+        applied[t.id] = target.id
+      })
+    })
+
+    Object.entries(applied).forEach(([taskId, teamId]) => assignTask(taskId, teamId))
+    setLastAutoAssignments(snapshot)
+  }
+
+  const undoAutoAssign = () => {
+    if (!lastAutoAssignments) return
+    const snapshot = lastAutoAssignments
+    const allIds = new Set([...Object.keys(snapshot), ...Object.keys(assignments)])
+    allIds.forEach((id) => {
+      const prevTeam = snapshot[id]
+      if (prevTeam !== assignments[id]) {
+        if (prevTeam) assignTask(id, prevTeam)
+        else unassignTask(id)
+      }
+    })
+    setLastAutoAssignments(null)
+  }
 
   const toggleBlockCollapse = (block) => {
     setExpandedBlocks((prev) =>
@@ -116,6 +175,41 @@ export default function Affectation() {
           Affectez par <strong>bloc complet</strong> (menu en haut de chaque bloc) ou <strong>ligne par ligne</strong>. Glissez-déposez également possible.
         </p>
       </div>
+
+      {/* Répartition automatique assistée */}
+      {teams.length > 0 && (unassignedCount > 0 || lastAutoAssignments) && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-sky-600" /> Répartition automatique
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {unassignedCount} tâche(s) sans équipe — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {lastAutoAssignments && (
+                <button
+                  onClick={undoAutoAssign}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-md"
+                  title="Rétablir les affectations d'avant la répartition automatique"
+                >
+                  <Undo2 className="h-3.5 w-3.5" /> Annuler
+                </button>
+              )}
+              <button
+                onClick={autoAssign}
+                disabled={unassignedCount === 0}
+                className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+                title="Répartir toutes les tâches sans équipe sur les équipes existantes"
+              >
+                <Users className="h-4 w-4" /> Répartir automatiquement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtre multi-blocs */}
       {blocks.length > 0 && (
