@@ -11,16 +11,32 @@ export default function Affectation() {
   const [expandedZones, setExpandedZones] = useState([])
   const [lastAutoAssignments, setLastAutoAssignments] = useState(null)
 
-  const unassignedCount = useMemo(
-    () => tasks.filter((t) => !assignments[t.id]).length,
-    [tasks, assignments]
+  // Blocs exclus de la répartition automatique (vide = tous les blocs)
+  const [excludedAutoBlocks, setExcludedAutoBlocks] = useState([])
+
+  const toggleAutoBlock = (block) => {
+    setExcludedAutoBlocks((prev) =>
+      prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
+    )
+  }
+
+  const autoScopeTasks = useMemo(
+    () =>
+      tasks.filter((t) => {
+        if (assignments[t.id]) return false
+        const block = t.taskType || 'AUTRE'
+        return !excludedAutoBlocks.includes(block)
+      }),
+    [tasks, assignments, excludedAutoBlocks]
   )
+
+  const autoScopeCount = autoScopeTasks.length
 
   // Répartition automatique : blocs entiers, équilibrés par nombre de tâches,
   // Found Fault (CORR) distribué en priorité
   const autoAssign = () => {
     if (!teams.length) return
-    const unassigned = tasks.filter((t) => !assignments[t.id])
+    const unassigned = autoScopeTasks
     if (!unassigned.length) return
 
     const snapshot = { ...assignments }
@@ -189,7 +205,7 @@ export default function Affectation() {
       </div>
 
       {/* Répartition automatique assistée */}
-      {teams.length > 0 && (unassignedCount > 0 || lastAutoAssignments) && (
+      {teams.length > 0 && blocks.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -197,7 +213,7 @@ export default function Affectation() {
                 <Wand2 className="h-4 w-4 text-sky-600" /> Répartition automatique
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {unassignedCount} tâche(s) sans équipe — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.
+                {autoScopeCount} tâche(s) sans équipe dans les blocs sélectionnés — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -212,14 +228,56 @@ export default function Affectation() {
               )}
               <button
                 onClick={autoAssign}
-                disabled={unassignedCount === 0}
+                disabled={autoScopeCount === 0}
                 className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
-                title="Répartir toutes les tâches sans équipe sur les équipes existantes"
+                title="Répartir les tâches sans équipe des blocs sélectionnés sur les équipes existantes"
               >
                 <Users className="h-4 w-4" /> Répartir automatiquement
               </button>
             </div>
           </div>
+          {blocks.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Blocs à répartir :</span>
+              {blocks.map((block) => {
+                const active = !excludedAutoBlocks.includes(block)
+                const color = getCategoryColor(block)
+                const count = tasks.filter(
+                  (t) =>
+                    (t.taskType || 'AUTRE') === block &&
+                    !assignments[t.id] &&
+                    !excludedAutoBlocks.includes((t.taskType || 'AUTRE'))
+                ).length
+                return (
+                  <button
+                    key={block}
+                    onClick={() => toggleAutoBlock(block)}
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all border-2"
+                    style={{
+                      backgroundColor: active ? color : 'transparent',
+                      borderColor: color,
+                      color: active ? '#fff' : color,
+                    }}
+                    title={active ? 'Cliquer pour exclure ce bloc' : 'Cliquer pour inclure ce bloc'}
+                  >
+                    {getCategoryLabel(block)} ({count})
+                  </button>
+                )
+              })}
+              {blocks.length > 1 && (
+                <button
+                  onClick={() =>
+                    setExcludedAutoBlocks(
+                      excludedAutoBlocks.length === blocks.length ? [] : [...blocks]
+                    )
+                  }
+                  className="text-xs text-sky-600 hover:underline"
+                >
+                  {excludedAutoBlocks.length === blocks.length ? 'Tout inclure' : 'Tout exclure'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
