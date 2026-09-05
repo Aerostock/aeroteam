@@ -68,6 +68,10 @@ export function AppProvider({ children }) {
   const pendingPayload = useRef(null)
   const codeRef = useRef('')
   const revRef = useRef(0)
+  const lastSavedJsonRef = useRef('')
+
+  const CACHE_PREFIX = 'maintenance-app-cache-'
+  const cacheKeyFor = (code) => `${CACHE_PREFIX}${code}`
 
   useEffect(() => {
     codeRef.current = code
@@ -76,28 +80,114 @@ export function AppProvider({ children }) {
   const isConnected = !!code && !!activeProfile
   const [saveState, setSaveState] = useState('saved')
 
-  const performSave = useCallback(async (payload, force) => {
-    setSaveState('saving')
+  // Applique un profil servi par Supabase (ou du cache) aux états locaux
+  const applyProfileData = useCallback((profile) => {
+    const data = profile.data || DEFAULT_EMPTY
+    setTasks(dedupeTasks(data.tasks || []))
+    setTeams(data.teams || [])
+    setAssignments(data.assignments || {})
+    setMembers(data.members || [])
+    setPrepTasks(data.prepTasks || [])
+    setPockets(data.pockets || [])
+    setNotes(data.notes || [])
+    revRef.current = profile.rev ?? 0
+    lastSavedJsonRef.current = JSON.stringify(data)
+    setActiveProfile({
+      id: profile.id,
+      code: profile.code ?? codeRef.current,
+      name: profile.name,
+      aircraft: profile.aircraft,
+    })
     try {
-      const res = await profileStore.saveProfileData(codeRef.current, payload, revRef.current, force)
-      if (res?.error === 'conflict') {
+      localStorage.setItem(
+        cacheKeyFor(codeRef.current),
+        JSON.stringify({
+          profile: { id: profile.id, name: profile.name, aircraft: profile.aircraft },
+          data,
+          rev: profile.rev ?? 0,
+        })
+      )
+    } catch {
+      // stockage indisponible : pas bloquant
+    }
+  }, [])
+
+  const totalPayload = useCallback(
+    () => ({ tasks, teams, assignments, members, prepTasks, notes, pockets }),
+    [tasks, teams, assignments, members, prepTasks, notes, pockets]
+  )
+
+  const performSave = useCallback(
+    async (payload, force) => {
+      setSaveState('saving')
+      try {
+        const res = await profileStore.saveProfileData(codeRef.current, payload, revRef.current, force)
+        if (res?.error === 'conflict') {
+          pendingPayload.current = null
+          setSaveState('conflict')
+          return
+        }
+        if (res?.error === 'not_found') {
+          pendingPayload.current = payload
+          setSaveState('offline')
+          return
+        }
+        revRef.current = res?.rev ?? revRef.current
         pendingPayload.current = null
+        lastSavedJsonRef.current = JSON.stringify(payload)
+        try {
+          localStorage.setItem(
+            cacheKeyFor(codeRef.current),
+            JSON.stringify({
+              profile: {
+                id: activeProfile?.id,
+                name: activeProfile?.name,
+                aircraft: activeProfile?.aircraft,
+              },
+              data: payload,
+              rev: revRef.current,
+            })
+          )
+        } catch {
+          // stockage indisponible : pas bloquant
+        }
+        setSaveState('saved')
+      } catch {
+        pendingPayload.current = payload
+        setSaveState('offline')
+      }
+    },
+    [activeProfile]
+  )
+
+  // Synchronisation entre appareils : si un autre appareil a sauvegardé,
+  // on adopte sa version (sauf si des modifications locales sont en cours)
+  const pollProfile = useCallback(async () => {
+    if (pendingPayload.current) return
+    const payloadJson = JSON.stringify(totalPayload())
+    try {
+      const profile = await profileStore.getProfile(codeRef.current)
+      if (!profile || profile.error === 'not_found') return
+      if (profile.rev === revRef.current) return
+      if (payloadJson !== lastSavedJsonRef.current) {
+        // Le serveur a changé pendant qu'on avait des modifications locales
+        // non sauvegardées : conflit détecté, l'utilisateur décide
         setSaveState('conflict')
         return
       }
-      if (res?.error === 'not_found') {
-        pendingPayload.current = payload
-        setSaveState('offline')
-        return
-      }
-      revRef.current = res?.rev ?? revRef.current
-      pendingPayload.current = null
-      setSaveState('saved')
+      if (saveState === 'offline' || saveState === 'conflict') setSaveState('saved')
+      applyProfileData(profile)
     } catch {
-      pendingPayload.current = payload
-      setSaveState('offline')
+      // hors ligne temporaire : silencieux, la prochaine passe s'en charge
     }
-  }, [])
+  }, [totalPayload, applyProfileData, saveState])
+
+  // Veille de synchronisation (toutes les 15 s) tant qu'un profil est chargé
+  useEffect(() => {
+    if (!isConnected || !loaded) return
+    const timer = setInterval(() => pollProfile(), 15000)
+    return () => clearInterval(timer)
+  }, [isConnected, loaded, pollProfile])
 
   // Veille de reprise : tant qu'un payload est en attente et qu'on
   // n'est ni hors ligne effectif ni en conflit, on retente toutes les 30 s
@@ -146,22 +236,32 @@ export function AppProvider({ children }) {
           setLoaded(false)
           return
         }
-        const data = profile.data || DEFAULT_EMPTY
-        setActiveProfile({ id: profile.id, code, name: profile.name, aircraft: profile.aircraft })
-        setTasks(dedupeTasks(data.tasks || []))
-        setTeams(data.teams || [])
-        setAssignments(data.assignments || {})
-        setMembers(data.members || [])
-        setPrepTasks(data.prepTasks || [])
-        setPockets(data.pockets || [])
-        setNotes(data.notes || [])
+        applyProfileData(profile)
         setLoaded(true)
-        revRef.current = profile.rev ?? 0
       })
       .catch((err) => {
         if (cancelled) return
-        setError('Impossible de se connecter : ' + (err.message || 'erreur réseau'))
-        setLoaded(false)
+        // Repli hors ligne : on utilise la dernière version connue de ce profil
+        let cached = null
+        try {
+          cached = JSON.parse(localStorage.getItem(cacheKeyFor(code)) || 'null')
+        } catch {
+          cached = null
+        }
+        if (cached?.data) {
+          applyProfileData({
+            id: cached.profile?.id,
+            name: cached.profile?.name,
+            aircraft: cached.profile?.aircraft,
+            rev: cached.rev ?? 0,
+            data: cached.data,
+          })
+          setLoaded(true)
+          setSaveState('offline')
+        } else {
+          setError('Impossible de se connecter : ' + (err.message || 'erreur réseau'))
+          setLoaded(false)
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -170,20 +270,21 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [code])
+  }, [code, applyProfileData])
 
   // Sauvegarde des données dans Supabase (debounce) une fois chargées
   useEffect(() => {
     if (!isConnected || !loaded) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      const payload = { tasks, teams, assignments, members, prepTasks, notes, pockets }
+      const payload = totalPayload()
+      if (JSON.stringify(payload) === lastSavedJsonRef.current) return
       performSave(payload, false)
     }, 600)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes, pockets, performSave])
+  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes, pockets, performSave, totalPayload])
 
   const resolveConflict = useCallback(
     async (mode) => {
@@ -194,26 +295,18 @@ export function AppProvider({ children }) {
             setSaveState('offline')
             return
           }
-          const data = profile.data || DEFAULT_EMPTY
-          setTasks(dedupeTasks(data.tasks || []))
-          setTeams(data.teams || [])
-          setAssignments(data.assignments || {})
-          setMembers(data.members || [])
-          setPrepTasks(data.prepTasks || [])
-          setPockets(data.pockets || [])
-          setNotes(data.notes || [])
-          revRef.current = profile.rev ?? 0
+          applyProfileData(profile)
           pendingPayload.current = null
           setSaveState('saved')
         } catch {
           setSaveState('offline')
         }
       } else {
-        const payload = { tasks, teams, assignments, members, prepTasks, notes, pockets }
+        const payload = totalPayload()
         await performSave(payload, true)
       }
     },
-    [tasks, teams, assignments, members, prepTasks, notes, pockets, performSave]
+    [applyProfileData, totalPayload, performSave]
   )
 
   const connectProfile = useCallback(async (profileCode) => {
@@ -264,6 +357,7 @@ export function AppProvider({ children }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     pendingPayload.current = null
     revRef.current = 0
+    lastSavedJsonRef.current = ''
     setSaveState('saved')
   }, [])
 
@@ -273,6 +367,7 @@ export function AppProvider({ children }) {
       if (!target) return { ok: false }
       try {
         await profileStore.deleteProfile(target)
+        localStorage.removeItem(cacheKeyFor(target))
         if (isConnected && target === code) {
           disconnect()
         }
