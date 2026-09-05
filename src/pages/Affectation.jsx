@@ -30,10 +30,8 @@ export default function Affectation() {
     }
   }
 
-  const allAutoBlocksSelected = autoSelectedBlocks.length === blocks.length
-
   const toggleAutoAll = () => {
-    if (allAutoBlocksSelected) {
+    if (autoSelectedBlocks.length === blocks.length) {
       setAutoSelectedBlocks([])
     } else {
       setAutoSelectedBlocks([...blocks])
@@ -368,7 +366,9 @@ export default function Affectation() {
                 })}
               {blocks.length > 1 && (
                 <button onClick={toggleAutoAll} className="text-xs text-sky-600 hover:underline">
-                  {allAutoBlocksSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  {autoSelectedBlocks.length === blocks.length
+                    ? 'Tout désélectionner'
+                    : 'Tout sélectionner'}
                 </button>
               )}
             </div>
