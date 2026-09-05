@@ -123,6 +123,30 @@ export function groupTasksByField(tasks, field) {
   }, {})
 }
 
+export function makeId(prefix = '') {
+  const uid =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  return prefix ? `${prefix}-${uid}` : uid
+}
+
+export function dedupeAndMerge(prev, newTasks) {
+  const existingSeqs = new Set(prev.map((t) => t.seq).filter((s) => s !== undefined && s !== ''))
+  const existingIds = new Set(prev.map((t) => t.id))
+  const fresh = newTasks
+    .filter((t) => !existingIds.has(t.id))
+    .filter((t) => {
+      if (t.seq === undefined || t.seq === '') return true
+      return !existingSeqs.has(t.seq)
+    })
+    .map((t) => ({
+      ...t,
+      id: t.id || makeId('task'),
+    }))
+  return [...prev, ...fresh]
+}
+
 export function normalizeHeader(header) {
   if (!header) return ''
   return header
@@ -222,7 +246,7 @@ export function parseExcelRows(rows, columns) {
     if (!description) return
 
     const task = {
-      id: `task-${Date.now()}-${result.length}`,
+      id: makeId('task'),
       seq: get('seq') !== undefined ? String(get('seq')) : undefined,
       description,
       skills: get('skills') ? String(get('skills')) : undefined,

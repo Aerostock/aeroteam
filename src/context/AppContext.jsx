@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import * as profileStore from '../lib/profileStore'
+import { dedupeAndMerge, makeId } from '../utils/helpers'
 
 const AppContext = createContext(null)
 
@@ -64,7 +65,52 @@ export function AppProvider({ children }) {
   const [loaded, setLoaded] = useState(false)
 
   const saveTimer = useRef(null)
+  const pendingPayload = useRef(null)
+  const codeRef = useRef('')
+  const revRef = useRef(0)
+
+  useEffect(() => {
+    codeRef.current = code
+  }, [code])
+
   const isConnected = !!code && !!activeProfile
+  const [saveState, setSaveState] = useState('saved')
+
+  const performSave = useCallback(async (payload, force) => {
+    setSaveState('saving')
+    try {
+      const res = await profileStore.saveProfileData(codeRef.current, payload, revRef.current, force)
+      if (res?.error === 'conflict') {
+        pendingPayload.current = null
+        setSaveState('conflict')
+        return
+      }
+      if (res?.error === 'not_found') {
+        pendingPayload.current = payload
+        setSaveState('offline')
+        return
+      }
+      revRef.current = res?.rev ?? revRef.current
+      pendingPayload.current = null
+      setSaveState('saved')
+    } catch {
+      pendingPayload.current = payload
+      setSaveState('offline')
+    }
+  }, [])
+
+  // Veille de reprise : tant qu'un payload est en attente et qu'on
+  // n'est ni hors ligne effectif ni en conflit, on retente toutes les 30 s
+  useEffect(() => {
+    if (!isConnected || !loaded) return
+    const timer = setInterval(() => {
+      const payload = pendingPayload.current
+      if (payload && saveState === 'offline') {
+        performSave(payload, false)
+      }
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [isConnected, loaded, saveState, performSave])
 
   // Charger le profil + ses données depuis Supabase quand le code change
   useEffect(() => {
@@ -78,6 +124,8 @@ export function AppProvider({ children }) {
       setPockets([])
       setNotes([])
       setLoaded(false)
+      setSaveState('saved')
+      revRef.current = 0
       return
     }
 
@@ -108,6 +156,7 @@ export function AppProvider({ children }) {
         setPockets(data.pockets || [])
         setNotes(data.notes || [])
         setLoaded(true)
+        revRef.current = profile.rev ?? 0
       })
       .catch((err) => {
         if (cancelled) return
@@ -128,14 +177,44 @@ export function AppProvider({ children }) {
     if (!isConnected || !loaded) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      profileStore
-        .saveProfileData(code, { tasks, teams, assignments, members, prepTasks, notes, pockets })
-        .catch((err) => console.error('Sauvegarde Supabase échouée', err))
+      const payload = { tasks, teams, assignments, members, prepTasks, notes, pockets }
+      performSave(payload, false)
     }, 600)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes, pockets])
+  }, [isConnected, loaded, code, tasks, teams, assignments, members, prepTasks, notes, pockets, performSave])
+
+  const resolveConflict = useCallback(
+    async (mode) => {
+      if (mode === 'reload') {
+        try {
+          const profile = await profileStore.getProfile(codeRef.current)
+          if (!profile || profile.error === 'not_found') {
+            setSaveState('offline')
+            return
+          }
+          const data = profile.data || DEFAULT_EMPTY
+          setTasks(dedupeTasks(data.tasks || []))
+          setTeams(data.teams || [])
+          setAssignments(data.assignments || {})
+          setMembers(data.members || [])
+          setPrepTasks(data.prepTasks || [])
+          setPockets(data.pockets || [])
+          setNotes(data.notes || [])
+          revRef.current = profile.rev ?? 0
+          pendingPayload.current = null
+          setSaveState('saved')
+        } catch {
+          setSaveState('offline')
+        }
+      } else {
+        const payload = { tasks, teams, assignments, members, prepTasks, notes, pockets }
+        await performSave(payload, true)
+      }
+    },
+    [tasks, teams, assignments, members, prepTasks, notes, pockets, performSave]
+  )
 
   const connectProfile = useCallback(async (profileCode) => {
     const c = String(profileCode || '').trim()
@@ -183,6 +262,9 @@ export function AppProvider({ children }) {
     setNotes([])
     setLoaded(false)
     if (saveTimer.current) clearTimeout(saveTimer.current)
+    pendingPayload.current = null
+    revRef.current = 0
+    setSaveState('saved')
   }, [])
 
   const deleteProfile = useCallback(
@@ -203,25 +285,11 @@ export function AppProvider({ children }) {
   )
 
   const addTasks = useCallback((newTasks) => {
-    setTasks((prev) => {
-      const existingSeqs = new Set(prev.map((t) => t.seq).filter((s) => s !== undefined && s !== ''))
-      const existingIds = new Set(prev.map((t) => t.id))
-      const fresh = newTasks
-        .filter((t) => !existingIds.has(t.id))
-        .filter((t) => {
-          if (t.seq === undefined || t.seq === '') return true
-          return !existingSeqs.has(t.seq)
-        })
-        .map((t, i) => ({
-          ...t,
-          id: t.id || `${Date.now()}-${i}`,
-        }))
-      return [...prev, ...fresh]
-    })
+    setTasks((prev) => dedupeAndMerge(prev, newTasks))
   }, [])
 
   const addTeam = useCallback((team) => {
-    setTeams((prev) => [...prev, { ...team, id: `team-${Date.now()}` }])
+    setTeams((prev) => [...prev, { ...team, id: makeId('team') }])
   }, [])
 
   const updateTeam = useCallback((id, updates) => {
@@ -260,17 +328,18 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  const removeTasksByBlock = useCallback((block) => {
-    setTasks((prev) => {
-      const idsToRemove = prev.filter((t) => t.taskType === block).map((t) => t.id)
-      setAssignments((prevAssign) => {
-        const next = { ...prevAssign }
+  const removeTasksByBlock = useCallback(
+    (block) => {
+      const idsToRemove = tasks.filter((t) => t.taskType === block).map((t) => t.id)
+      setTasks((prev) => prev.filter((t) => t.taskType !== block))
+      setAssignments((prev) => {
+        const next = { ...prev }
         idsToRemove.forEach((id) => delete next[id])
         return next
       })
-      return prev.filter((t) => t.taskType !== block)
-    })
-  }, [])
+    },
+    [tasks]
+  )
 
   const resetData = useCallback(() => {
     setTasks([])
@@ -281,21 +350,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const addPrepTasks = useCallback((newTasks) => {
-    setPrepTasks((prev) => {
-      const existingSeqs = new Set(prev.map((t) => t.seq).filter((s) => s !== undefined && s !== ''))
-      const existingIds = new Set(prev.map((t) => t.id))
-      const fresh = newTasks
-        .filter((t) => !existingIds.has(t.id))
-        .filter((t) => {
-          if (t.seq === undefined || t.seq === '') return true
-          return !existingSeqs.has(t.seq)
-        })
-        .map((t, i) => ({
-          ...t,
-          id: t.id || `${Date.now()}-${i}`,
-        }))
-      return [...prev, ...fresh]
-    })
+    setPrepTasks((prev) => dedupeAndMerge(prev, newTasks))
   }, [])
 
   const removePrepTask = useCallback((taskId) => {
@@ -326,7 +381,7 @@ export function AppProvider({ children }) {
   const addPocket = useCallback((name) => {
     const trimmed = String(name || '').trim()
     if (!trimmed) return null
-    const id = `pocket-${Date.now()}`
+    const id = makeId('pocket')
     setPockets((prev) => [
       ...prev,
       { id, name: trimmed, taskIds: [], createdAt: Date.now() },
@@ -367,7 +422,7 @@ export function AppProvider({ children }) {
 
   const addNote = useCallback((title, content) => {
     setNotes((prev) => [
-      { id: `note-${Date.now()}`, title, content, createdAt: Date.now() },
+      { id: makeId('note'), title, content, createdAt: Date.now() },
       ...prev,
     ])
   }, [])
@@ -406,10 +461,10 @@ export function AppProvider({ children }) {
     )
   }, [])
 
-  const value = {
-tasks, teams, assignments, members, prepTasks, notes, pockets,
+const value = {
+    tasks, teams, assignments, members, prepTasks, notes, pockets,
     activeProfile, code, isAdmin: code === ADMIN_CODE,
-    loading, error,
+    loading, error, saveState, resolveConflict,
     connectProfile, createProfile, disconnect, deleteProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,

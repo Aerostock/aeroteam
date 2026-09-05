@@ -29,13 +29,14 @@ export async function profileExists(code) {
   return !!data
 }
 
-export async function saveProfileData(code, dataObj) {
+export async function saveProfileData(code, dataObj, rev = 0, force = false) {
   const { data, error } = await supabase.rpc('save_profile_data', {
     p_code: code,
     p_data: dataObj,
+    p_rev: rev,
+    p_force: force,
   })
   if (error) throw error
-  if (data?.error === 'not_found') throw new Error('not_found')
   return data
 }
 

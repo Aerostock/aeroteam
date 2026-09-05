@@ -14,7 +14,7 @@ const navItems = [
 ]
 
 export default function Layout({ children }) {
-  const { activeProfile, disconnect, deleteProfile, isAdmin } = useApp()
+  const { activeProfile, disconnect, deleteProfile, isAdmin, saveState, resolveConflict } = useApp()
 
   const items = isAdmin
     ? [...navItems, { to: '/admin', label: 'Administration' }]
@@ -49,6 +49,17 @@ export default function Layout({ children }) {
               {activeProfile?.aircraft && (
                 <p className="text-[10px] sm:text-xs text-slate-400 truncate max-w-[30vw] sm:max-w-[200px]">✈ {activeProfile.aircraft}</p>
               )}
+              {saveState === 'saving' && (
+                <p className="text-[10px] sm:text-xs text-amber-300 animate-pulse">Sauvegarde…</p>
+              )}
+              {saveState === 'offline' && (
+                <p
+                  className="text-[10px] sm:text-xs text-red-400 font-semibold"
+                  title="La sauvegarde a échoué : nouvelle tentative automatique toutes les 30 secondes. Vérifiez la connexion et restez sur cette page."
+                >
+                  Hors ligne ⚠
+                </p>
+              )}
             </div>
             <button
               onClick={switchProfile}
@@ -66,6 +77,31 @@ export default function Layout({ children }) {
             </button>
           </div>
         </div>
+        {saveState === 'conflict' && (
+          <div className="mx-auto max-w-7xl px-4 py-2 flex flex-wrap items-center justify-between gap-3 bg-amber-500 text-white text-sm">
+            <span className="font-semibold">
+              ⚠ Conflit de sauvegarde : vos modifications locales et celles enregistrées par un autre appareil divergent.
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => resolveConflict('reload')}
+                className="bg-white text-amber-700 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-amber-50"
+              >
+                Recharger depuis le serveur
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Écraser les données du serveur avec celles de cet appareil ? Cette action est irréversible.')) {
+                    resolveConflict('overwrite')
+                  }
+                }}
+                className="bg-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-amber-800"
+              >
+                Écraser avec mes données
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mx-auto max-w-7xl px-2 pb-2 flex overflow-x-auto">
           {items.map((item) => (
             <NavLink
