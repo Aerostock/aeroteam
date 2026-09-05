@@ -289,7 +289,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const addTeam = useCallback((team) => {
-    setTeams((prev) => [...prev, { ...team, id: makeId('team') }])
+    setTeams((prev) => [...prev, { ...team, locked: false, id: makeId('team') }])
   }, [])
 
   const updateTeam = useCallback((id, updates) => {

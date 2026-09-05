@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
-import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2 } from 'lucide-react'
+import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2, Lock, LockOpen } from 'lucide-react'
 
 export default function Affectation() {
-  const { tasks, teams, assignments, assignTask, unassignTask } = useApp()
+  const { tasks, teams, assignments, assignTask, unassignTask, updateTeam } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
   const [expandedZones, setExpandedZones] = useState([])
   const [lastAutoAssignments, setLastAutoAssignments] = useState(null)
+
+  // Équipes pouvant recevoir des tâches à la répartition automatique
+  const autoTeams = useMemo(() => teams.filter((t) => !t.locked), [teams])
+  const autoLockedCount = teams.length - autoTeams.length
 
   // Blocs exclus de la répartition automatique (vide = tous les blocs)
   // Blocs sélectionnés pour la répartition automatique (rien par défaut)
@@ -78,7 +82,7 @@ export default function Affectation() {
   // Répartition automatique : blocs entiers, équilibrés par nombre de tâches,
   // Found Fault (CORR) distribué en priorité
   const autoAssign = () => {
-    if (!teams.length) return
+    if (!autoTeams.length) return
     const unassigned = autoScopeTasks
     if (!unassigned.length) return
 
@@ -99,13 +103,13 @@ export default function Affectation() {
 
     const applied = {}
     const load = {}
-    teams.forEach((t) => {
+    autoTeams.forEach((t) => {
       load[t.id] = Object.values(assignments).filter((id) => id === t.id).length
     })
 
-    const idealPerTeam = unassigned.length / teams.length
+    const idealPerTeam = unassigned.length / autoTeams.length
     const leastLoadedTeam = () =>
-      [...teams].sort((t1, t2) => load[t1.id] - load[t2.id])[0]
+      [...autoTeams].sort((t1, t2) => load[t1.id] - load[t2.id])[0]
 
     const giveTask = (task, teamId) => {
       applied[task.id] = teamId
@@ -271,11 +275,18 @@ export default function Affectation() {
                 <Wand2 className="h-4 w-4 text-sky-600" /> Répartition automatique
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {autoSelectedBlocks.length === 0
-                  ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche. Cochez d’abord un bloc.'
-                  : autoScopeCount === 0
-                    ? 'Bloc(s) sélectionné(s) mais aucun sous-bloc coché : cochez les sous-blocs voulus (ou « Tous »).'
-                    : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches entre les équipes (blocs entiers quand l'équilibre le permet), Found Fault en priorité.`}
+                {autoTeams.length === 0
+                  ? 'Toutes les équipes sont verrouillées : déverrouillez-en au moins une pour répartir.'
+                  : autoSelectedBlocks.length === 0
+                    ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche. Cochez d’abord un bloc.'
+                    : autoScopeCount === 0
+                      ? 'Bloc(s) sélectionné(s) mais aucun sous-bloc coché : cochez les sous-blocs voulus (ou « Tous »).'
+                      : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches entre les ${autoTeams.length} équipe(s) déverrouillée(s) (blocs entiers quand l'équilibre le permet), Found Fault en priorité.`}
+                {autoLockedCount > 0 && autoTeams.length > 0 && (
+                  <span className="text-amber-600 font-semibold">
+                    {' '}— {autoLockedCount} équipe(s) verrouillée(s) ne recevront rien.
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -290,9 +301,9 @@ export default function Affectation() {
               )}
               <button
                 onClick={autoAssign}
-                disabled={autoScopeCount === 0}
+                disabled={autoScopeCount === 0 || autoTeams.length === 0}
                 className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
-                title="Répartir les tâches sans équipe des blocs sélectionnés sur les équipes existantes"
+                title="Répartir les tâches sans équipe des blocs et sous-blocs sélectionnés sur les équipes déverrouillées"
               >
                 <Users className="h-4 w-4" /> Répartir automatiquement
               </button>
@@ -652,8 +663,27 @@ export default function Affectation() {
               >
                 <div className="px-3 py-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm">{team.name}</span>
-                    <span className="text-xs text-slate-400">{assignedCount(team.id)} tâche(s)</span>
+                    <span className="font-semibold text-sm flex items-center gap-1.5">
+                      {team.locked && (
+                        <Lock className="h-3.5 w-3.5 text-amber-400" />
+                      )}
+                      {team.name}
+                    </span>
+                    <span className="text-xs text-slate-400 flex items-center gap-2">
+                      {team.locked && <span className="text-[10px] text-amber-400 font-semibold">verrouillée</span>}
+                      {assignedCount(team.id)} tâche(s)
+                      <button
+                        onClick={() => updateTeam(team.id, { locked: !team.locked })}
+                        className={team.locked ? 'text-amber-300 hover:text-amber-100' : 'text-slate-500 hover:text-amber-300'}
+                        title={
+                          team.locked
+                            ? 'Déverrouiller cette équipe (elle pourra recevoir des tâches à la répartition automatique)'
+                            : 'Verrouiller cette équipe (elle ne recevra plus de tâches à la répartition automatique)'
+                        }
+                      >
+                        {team.locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+                      </button>
+                    </span>
                   </div>
                   <div className="text-xs text-slate-400 mt-1 flex flex-wrap gap-1">
                     {team.members.length === 0 && <span>—</span>}

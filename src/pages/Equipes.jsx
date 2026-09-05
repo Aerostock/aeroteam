@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { UserPlus, Users, Trash2, Plus, X, BookUser, Upload } from 'lucide-react'
+import { UserPlus, Users, Trash2, Plus, X, BookUser, Upload, Lock, LockOpen } from 'lucide-react'
 
 export default function Equipes() {
   const {
@@ -211,15 +211,32 @@ export default function Equipes() {
             >
               <div className="flex items-center gap-2 text-white">
                 <UserPlus className="h-5 w-5" />
-                <h3 className="font-bold">{team.name}</h3>
+                <h3 className="font-bold flex items-center gap-1.5">
+                  {team.locked && <Lock className="h-3.5 w-3.5 text-amber-300" />}
+                  {team.name}
+                  {team.locked && <span className="text-[10px] font-semibold text-amber-200">verrouillée</span>}
+                </h3>
               </div>
-              <button
-                onClick={() => removeTeam(team.id)}
-                className="text-white/80 hover:text-white"
-                title="Supprimer l'équipe"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => updateTeam(team.id, { locked: !team.locked })}
+                  className="text-white/80 hover:text-white p-1.5 rounded"
+                  title={
+                    team.locked
+                      ? 'Déverrouiller cette équipe (elle pourra recevoir des tâches à la répartition automatique)'
+                      : 'Verrouiller cette équipe (elle ne recevra plus de tâches à la répartition automatique)'
+                  }
+                >
+                  {team.locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={() => removeTeam(team.id)}
+                  className="text-white/80 hover:text-white"
+                  title="Supprimer l'équipe"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
