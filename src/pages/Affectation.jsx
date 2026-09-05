@@ -97,17 +97,32 @@ export default function Affectation() {
       return byBlock[b].length - byBlock[a].length
     })
 
-    const teamCount = (teamId) =>
-      Object.values({ ...assignments, ...applied }).filter((id) => id === teamId).length
-
     const applied = {}
+    const load = {}
+    teams.forEach((t) => {
+      load[t.id] = Object.values(assignments).filter((id) => id === t.id).length
+    })
+
+    const idealPerTeam = unassigned.length / teams.length
+    const leastLoadedTeam = () =>
+      [...teams].sort((t1, t2) => load[t1.id] - load[t2.id])[0]
+
+    const giveTask = (task, teamId) => {
+      applied[task.id] = teamId
+      load[teamId] += 1
+    }
+
     blockOrder.forEach((block) => {
-      const target = [...teams].sort(
-        (t1, t2) => teamCount(t1.id) - teamCount(t2.id)
-      )[0]
-      byBlock[block].forEach((t) => {
-        applied[t.id] = target.id
-      })
+      const blockTasks = byBlock[block]
+      const target = leastLoadedTeam()
+      const wholeBlockKeepsBalance = load[target.id] + blockTasks.length <= idealPerTeam + 1
+      if (wholeBlockKeepsBalance) {
+        blockTasks.forEach((t) => giveTask(t, target.id))
+      } else {
+        // Le bloc est trop gros pour rester entier sans déséquilibrer :
+        // on le répartit tâche par tâche vers l'équipe la moins chargée
+        blockTasks.forEach((t) => giveTask(t, leastLoadedTeam().id))
+      }
     })
 
     Object.entries(applied).forEach(([taskId, teamId]) => assignTask(taskId, teamId))
@@ -260,7 +275,7 @@ export default function Affectation() {
                   ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche. Cochez d’abord un bloc.'
                   : autoScopeCount === 0
                     ? 'Bloc(s) sélectionné(s) mais aucun sous-bloc coché : cochez les sous-blocs voulus (ou « Tous »).'
-                    : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.`}
+                    : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches entre les équipes (blocs entiers quand l'équilibre le permet), Found Fault en priorité.`}
               </p>
             </div>
             <div className="flex items-center gap-2">
