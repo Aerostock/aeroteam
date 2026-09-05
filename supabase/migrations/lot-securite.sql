@@ -160,7 +160,7 @@ create or replace function public.check_admin(p_code text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   h text;
@@ -191,7 +191,7 @@ create or replace function public.set_admin_code(p_old text, p_new text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   h text;
@@ -224,7 +224,8 @@ $$;
 -- (8 caractères minimum, ne le partagez jamais, ne le mettez
 -- jamais dans un fichier du dépôt).
 --
+-- set search_path = public, extensions;
 -- insert into public.admins (code_hash)
--- select crypt('Dnstuff1986', gen_salt('bf'))
+-- select crypt('VOTRE_CODE_ADMIN', gen_salt('bf'))
 -- where not exists (select 1 from public.admins);
 -- ============================================================
