@@ -308,7 +308,7 @@ export default function Affectation() {
                       </span>
                       {zoneEntries.map(([zone, count]) => {
                         const key = zoneScopeKey(block, zone)
-                        const active = !excludedAutoZones.includes(key)
+                        const active = !autoExcludedZones.includes(key)
                         const color = getZoneColor(zone, zones)
                         return (
                           <button
