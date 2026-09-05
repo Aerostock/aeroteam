@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
-import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2 } from 'lucide-react'
+import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2 } from 'lucide-react'
 
 export default function Affectation() {
-  const { tasks, teams, assignments, assignTask, unassignTask } = useApp()
+  const { tasks, teams, assignments, assignTask, unassignTask, removeTask } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
@@ -145,19 +145,21 @@ export default function Affectation() {
   const assignedCount = (teamId) =>
     Object.values(assignments).filter((id) => id === teamId).length
 
-  // Répartition blocs/zones affectés à une équipe (+ numéros de ligne)
+  // Répartition blocs/zones affectés à une équipe (+ tâches individuelles)
   const teamBlocks = (teamId) => {
     const groups = {}
     tasks.forEach((t) => {
       if (assignments[t.id] === teamId && t.taskType) {
         const zone = t.workArea || 'Autre'
         const key = `${t.taskType} / ${zone}`
-        if (!groups[key]) groups[key] = { count: 0, seqs: [] }
+        if (!groups[key]) groups[key] = { count: 0, tasks: [] }
         groups[key].count += 1
-        if (t.seq !== undefined && t.seq !== '') groups[key].seqs.push(String(t.seq))
+        groups[key].tasks.push(t)
       }
     })
-    Object.values(groups).forEach((g) => g.seqs.sort((a, b) => Number(a) - Number(b)))
+    Object.values(groups).forEach((g) =>
+      g.tasks.sort((a, b) => Number(a.seq) - Number(b.seq))
+    )
     return groups
   }
 
@@ -517,9 +519,32 @@ export default function Affectation() {
                                 ({info.count} tâche{info.count > 1 ? 's' : ''})
                               </span>
                             </div>
-                            {info.seqs.length > 0 && (
-                              <div className="px-2 py-1 text-[11px] font-mono bg-white text-slate-700">
-                                N° : {info.seqs.join(', ')}
+                            {info.tasks.length > 0 && (
+                              <div className="bg-white">
+                                {info.tasks.map((t) => (
+                                  <div
+                                    key={t.id}
+                                    className="flex items-center gap-2 px-2 py-1 text-[11px] border-t border-dashed border-slate-100"
+                                  >
+                                    <span className="font-mono font-bold text-slate-600 w-8 shrink-0">
+                                      {t.seq || '—'}
+                                    </span>
+                                    <span className="flex-1 min-w-0 truncate" title={t.description}>
+                                      {t.description}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm(`Supprimer la tâche ${t.seq ? `n° ${t.seq} ` : ''}?`)) {
+                                          removeTask(t.id)
+                                        }
+                                      }}
+                                      className="text-slate-400 hover:text-red-600 shrink-0"
+                                      title="Supprimer cette tâche (elle disparaît du planning)"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
