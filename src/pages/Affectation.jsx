@@ -13,6 +13,7 @@ export default function Affectation() {
 
   // Blocs exclus de la répartition automatique (vide = tous les blocs)
   const [excludedAutoBlocks, setExcludedAutoBlocks] = useState([])
+  const [excludedAutoZones, setExcludedAutoZones] = useState([])
 
   const toggleAutoBlock = (block) => {
     setExcludedAutoBlocks((prev) =>
@@ -20,14 +21,39 @@ export default function Affectation() {
     )
   }
 
+  const zoneScopeKey = (block, zone) => `${block}::${zone}`
+
+  const toggleAutoZone = (block, zone) => {
+    const key = zoneScopeKey(block, zone)
+    setExcludedAutoZones((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }
+
+  // Sous-blocs (zones) encore concernés par bloc, avec leur nombre
+  const blockZones = useMemo(() => {
+    const map = {}
+    tasks.forEach((t) => {
+      if (assignments[t.id]) return
+      const block = t.taskType || 'AUTRE'
+      if (excludedAutoBlocks.includes(block)) return
+      const zone = t.workArea || 'Autre'
+      if (!map[block]) map[block] = {}
+      map[block][zone] = (map[block][zone] || 0) + 1
+    })
+    return map
+  }, [tasks, assignments, excludedAutoBlocks])
+
   const autoScopeTasks = useMemo(
     () =>
       tasks.filter((t) => {
         if (assignments[t.id]) return false
         const block = t.taskType || 'AUTRE'
-        return !excludedAutoBlocks.includes(block)
+        if (excludedAutoBlocks.includes(block)) return false
+        const zone = t.workArea || 'Autre'
+        return !excludedAutoZones.includes(zoneScopeKey(block, zone))
       }),
-    [tasks, assignments, excludedAutoBlocks]
+    [tasks, assignments, excludedAutoBlocks, excludedAutoZones]
   )
 
   const autoScopeCount = autoScopeTasks.length
@@ -243,10 +269,7 @@ export default function Affectation() {
                 const active = !excludedAutoBlocks.includes(block)
                 const color = getCategoryColor(block)
                 const count = tasks.filter(
-                  (t) =>
-                    (t.taskType || 'AUTRE') === block &&
-                    !assignments[t.id] &&
-                    !excludedAutoBlocks.includes((t.taskType || 'AUTRE'))
+                  (t) => (t.taskType || 'AUTRE') === block && !assignments[t.id]
                 ).length
                 return (
                   <button
@@ -264,6 +287,58 @@ export default function Affectation() {
                   </button>
                 )
               })}
+              {blocks
+                .filter((b) => !excludedAutoBlocks.includes(b))
+                .map((block) => {
+                  const zoneEntries = Object.entries(blockZones[block] || {}).sort((a, b) =>
+                    a[0].localeCompare(b[0])
+                  )
+                  if (!zoneEntries.length) return null
+                  return (
+                    <div key={block} className="w-full flex flex-wrap items-center gap-1.5 pl-3">
+                      <span className="text-[11px] font-semibold text-slate-400">
+                        {getCategoryLabel(block)} : sous-blocs
+                      </span>
+                      {zoneEntries.map(([zone, count]) => {
+                        const key = zoneScopeKey(block, zone)
+                        const active = !excludedAutoZones.includes(key)
+                        const color = getZoneColor(zone, zones)
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => toggleAutoZone(block, zone)}
+                            className="px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all border-2"
+                            style={{
+                              backgroundColor: active ? color : 'transparent',
+                              borderColor: color,
+                              color: active ? '#fff' : color,
+                            }}
+                            title={
+                              active
+                                ? 'Cliquer pour exclure ce sous-bloc'
+                                : 'Cliquer pour inclure ce sous-bloc'
+                            }
+                          >
+                            {zone} ({count})
+                          </button>
+                        )
+                      })}
+                      {zoneEntries.length > 1 && (
+                        <button
+                          onClick={() =>
+                            setExcludedAutoZones((prev) =>
+                              prev.filter((k) => !k.startsWith(`${block}::`))
+                            )
+                          }
+                          className="text-[11px] text-sky-600 hover:underline"
+                          title={`Ré-inclure tous les sous-blocs de ${getCategoryLabel(block)}`}
+                        >
+                          Tous
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               {blocks.length > 1 && (
                 <button
                   onClick={() =>
