@@ -449,7 +449,7 @@ export default function Affectation() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
         <div className="space-y-4">
           {visibleBlocksList.length === 0 && (
             <div className="bg-white rounded-xl shadow p-8 text-center text-slate-500">
@@ -722,12 +722,12 @@ export default function Affectation() {
                                 {info.tasks.map((t) => (
                                   <div
                                     key={t.id}
-                                    className="flex items-center gap-2 px-2 py-1 text-[11px] border-t border-dashed border-slate-100"
+                                    className="flex items-center gap-2 px-2 py-1.5 text-xs border-t border-dashed border-slate-100"
                                   >
-                                    <span className="font-mono font-bold text-slate-600 w-8 shrink-0">
+                                    <span className="font-mono font-bold text-slate-600 w-9 shrink-0">
                                       {t.seq || '—'}
                                     </span>
-                                    <span className="flex-1 min-w-0 truncate" title={t.description}>
+                                    <span className="flex-1 min-w-0 truncate font-medium text-slate-800" title={t.description}>
                                       {t.description}
                                     </span>
                                     <button
@@ -735,7 +735,7 @@ export default function Affectation() {
                                       className="text-slate-400 hover:text-red-600 shrink-0"
                                       title="Retirer de l'équipe (la tâche redevient non affectée)"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <Trash2 className="h-4 w-4" />
                                     </button>
                                   </div>
                                 ))}
