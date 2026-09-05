@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useApp } from '../context/AppContext'
 import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
 import {
@@ -15,7 +17,14 @@ import {
   Printer,
   Pencil,
   Check,
+  FileDown,
 } from 'lucide-react'
+
+function hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return [100, 116, 139]
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
 
 const PRINT_STYLE_ID = 'aero-print-style'
 
@@ -238,6 +247,102 @@ export default function Preparation() {
     injectPrintStyle()
     // Ajour du timeout pour laisser la suppression du style prendre effet
     setTimeout(() => window.print(), 0)
+  }
+
+  const exportPocketPdf = () => {
+    if (!printPocket) return
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 10
+    const contentWidth = pageWidth - margin * 2
+
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text(printPocket.name, margin, 15)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    const hours = Object.entries(printByBlock).reduce(
+      (acc, [, info]) => acc + info.totalHours,
+      0
+    )
+    doc.text(
+      `${printTasks.length} / ${printPocket.taskIds.length} ligne(s) sélectionnée(s) · ${hours.toFixed(1)} h · ${new Date().toLocaleDateString('fr-FR')}`,
+      margin,
+      21
+    )
+
+    let y = 28
+    const blockNames = Object.keys(printByBlock)
+
+    if (blockNames.length === 0) {
+      doc.text('Aucune tâche sélectionnée.', margin, y + 4)
+    }
+
+    blockNames.forEach((blk) => {
+      const info = printByBlock[blk]
+      if (y > pageHeight - 25) {
+        doc.addPage()
+        y = 14
+      }
+      doc.setFillColor(...hexToRgb(getCategoryColor(blk)))
+      doc.rect(margin, y, contentWidth, 7, 'F')
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(255, 255, 255)
+      doc.text(
+        `Bloc ${getCategoryLabel(blk)} · ${info.count} tâche(s) · ${info.totalHours.toFixed(1)} h`,
+        margin + 2,
+        y + 4.6
+      )
+      doc.setTextColor(0, 0, 0)
+      y += 10
+
+      Object.keys(info.zones).forEach((zone) => {
+        const zoneTasks = info.zones[zone]
+        autoTable(doc, {
+          startY: y,
+          pageBreak: 'auto',
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              {
+                content: `${zone} (${zoneTasks.length})`,
+                colSpan: 3,
+                styles: {
+                  fillColor: [226, 232, 240],
+                  textColor: [30, 41, 59],
+                  fontStyle: 'bold',
+                  fontSize: 9,
+                },
+              },
+            ],
+          ],
+          body: zoneTasks.map((t) => [
+            t.seq !== undefined && t.seq !== '' ? String(t.seq) : '—',
+            t.description || '',
+            t.registration || '—',
+          ]),
+          styles: { fontSize: 8, cellPadding: 1.2 },
+          columnStyles: {
+            0: { cellWidth: 14 },
+            2: { cellWidth: 26, halign: 'left' },
+          },
+        })
+        y = doc.lastAutoTable.finalY + 5
+        if (y > pageHeight - 15) {
+          doc.addPage()
+          y = 14
+        }
+      })
+    })
+
+    doc.save(
+      `pochette-${printPocket.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'sans-nom'}-${new Date().toISOString().slice(0, 10)}.pdf`
+    )
   }
 
   const printPocket = printPocketId ? pocketById[printPocketId] : null
@@ -687,6 +792,13 @@ export default function Preparation() {
                 </div>
               </div>
               <div className="flex items-center gap-2 print:hidden">
+                <button
+                  onClick={exportPocketPdf}
+                  disabled={printTasks.length === 0}
+                  className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+                >
+                  <FileDown className="h-4 w-4" /> Exporter en PDF
+                </button>
                 <button
                   onClick={handlePrint}
                   className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-700 text-sm font-semibold"
