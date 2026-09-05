@@ -12,11 +12,12 @@ export default function Affectation() {
   const [lastAutoAssignments, setLastAutoAssignments] = useState(null)
 
   // Blocs exclus de la répartition automatique (vide = tous les blocs)
-  const [excludedAutoBlocks, setExcludedAutoBlocks] = useState([])
-  const [excludedAutoZones, setExcludedAutoZones] = useState([])
+  // Blocs sélectionnés pour la répartition automatique (rien par défaut)
+  const [autoSelectedBlocks, setAutoSelectedBlocks] = useState([])
+  const [autoExcludedZones, setAutoExcludedZones] = useState([])
 
   const toggleAutoBlock = (block) => {
-    setExcludedAutoBlocks((prev) =>
+    setAutoSelectedBlocks((prev) =>
       prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]
     )
   }
@@ -25,35 +26,35 @@ export default function Affectation() {
 
   const toggleAutoZone = (block, zone) => {
     const key = zoneScopeKey(block, zone)
-    setExcludedAutoZones((prev) =>
+    setAutoExcludedZones((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     )
   }
 
-  // Sous-blocs (zones) encore concernés par bloc, avec leur nombre
+  // Sous-blocs (zones) des blocs sélectionnés, avec leur nombre
   const blockZones = useMemo(() => {
     const map = {}
     tasks.forEach((t) => {
       if (assignments[t.id]) return
       const block = t.taskType || 'AUTRE'
-      if (excludedAutoBlocks.includes(block)) return
+      if (!autoSelectedBlocks.includes(block)) return
       const zone = t.workArea || 'Autre'
       if (!map[block]) map[block] = {}
       map[block][zone] = (map[block][zone] || 0) + 1
     })
     return map
-  }, [tasks, assignments, excludedAutoBlocks])
+  }, [tasks, assignments, autoSelectedBlocks])
 
   const autoScopeTasks = useMemo(
     () =>
       tasks.filter((t) => {
         if (assignments[t.id]) return false
         const block = t.taskType || 'AUTRE'
-        if (excludedAutoBlocks.includes(block)) return false
+        if (!autoSelectedBlocks.includes(block)) return false
         const zone = t.workArea || 'Autre'
-        return !excludedAutoZones.includes(zoneScopeKey(block, zone))
+        return !autoExcludedZones.includes(zoneScopeKey(block, zone))
       }),
-    [tasks, assignments, excludedAutoBlocks, excludedAutoZones]
+    [tasks, assignments, autoSelectedBlocks, autoExcludedZones]
   )
 
   const autoScopeCount = autoScopeTasks.length
@@ -239,7 +240,9 @@ export default function Affectation() {
                 <Wand2 className="h-4 w-4 text-sky-600" /> Répartition automatique
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {autoScopeCount} tâche(s) sans équipe dans les blocs sélectionnés — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.
+                {autoScopeCount === 0
+                  ? 'Aucun bloc sélectionné : la répartition automatique ne touchera aucune tâche tant que vous n’avez pas choisi de blocs.'
+                  : `${autoScopeCount} tâche(s) sélectionnée(s) — équilibre par nombre de tâches, blocs entiers, Found Fault en priorité.`}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -266,7 +269,7 @@ export default function Affectation() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Blocs à répartir :</span>
               {blocks.map((block) => {
-                const active = !excludedAutoBlocks.includes(block)
+                const active = autoSelectedBlocks.includes(block)
                 const color = getCategoryColor(block)
                 const count = tasks.filter(
                   (t) => (t.taskType || 'AUTRE') === block && !assignments[t.id]
@@ -281,14 +284,18 @@ export default function Affectation() {
                       borderColor: color,
                       color: active ? '#fff' : color,
                     }}
-                    title={active ? 'Cliquer pour exclure ce bloc' : 'Cliquer pour inclure ce bloc'}
+                    title={
+                      active
+                        ? 'Cliquer pour ne pas répartir ce bloc'
+                        : 'Cliquer pour inclure ce bloc dans la répartition'
+                    }
                   >
                     {getCategoryLabel(block)} ({count})
                   </button>
                 )
               })}
               {blocks
-                .filter((b) => !excludedAutoBlocks.includes(b))
+                .filter((b) => autoSelectedBlocks.includes(b))
                 .map((block) => {
                   const zoneEntries = Object.entries(blockZones[block] || {}).sort((a, b) =>
                     a[0].localeCompare(b[0])
@@ -326,7 +333,7 @@ export default function Affectation() {
                       {zoneEntries.length > 1 && (
                         <button
                           onClick={() =>
-                            setExcludedAutoZones((prev) =>
+                            setAutoExcludedZones((prev) =>
                               prev.filter((k) => !k.startsWith(`${block}::`))
                             )
                           }
@@ -342,13 +349,15 @@ export default function Affectation() {
               {blocks.length > 1 && (
                 <button
                   onClick={() =>
-                    setExcludedAutoBlocks(
-                      excludedAutoBlocks.length === blocks.length ? [] : [...blocks]
+                    setAutoSelectedBlocks(
+                      autoSelectedBlocks.length === blocks.length ? [] : [...blocks]
                     )
                   }
                   className="text-xs text-sky-600 hover:underline"
                 >
-                  {excludedAutoBlocks.length === blocks.length ? 'Tout inclure' : 'Tout exclure'}
+                  {autoSelectedBlocks.length === blocks.length
+                    ? 'Tout désélectionner'
+                    : 'Tout sélectionner'}
                 </button>
               )}
             </div>
