@@ -7,7 +7,6 @@ const AppContext = createContext(null)
 const ACTIVE_CODE_KEY = 'maintenance-app-active-code'
 const ACTIVE_AT_KEY = 'maintenance-app-active-at'
 const SESSION_MAX_HOURS = 12
-export const ADMIN_CODE = '4172'
 
 function loadActiveCode() {
   try {
@@ -79,6 +78,7 @@ export function AppProvider({ children }) {
 
   const isConnected = !!code && !!activeProfile
   const [saveState, setSaveState] = useState('saved')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Applique un profil servi par Supabase (ou du cache) aux états locaux
   const applyProfileData = useCallback((profile) => {
@@ -227,6 +227,13 @@ export function AppProvider({ children }) {
       .getProfile(code)
       .then((profile) => {
         if (cancelled) return
+        if (profile?.locked) {
+          // Verrouillage anti force brute : on refuse l'accès sans utiliser le cache
+          setError('Trop de tentatives de connexion : réessayez dans 15 minutes.')
+          setLoaded(false)
+          setIsAdmin(false)
+          return
+        }
         if (!profile) {
           // Le code n'existe pas (profil supprimé sur le cloud) : on déconnecte
           localStorage.removeItem(ACTIVE_CODE_KEY)
@@ -313,10 +320,17 @@ export function AppProvider({ children }) {
     const c = String(profileCode || '').trim()
     if (!c) return { ok: false, error: 'Veuillez saisir un code.' }
     const exists = await profileStore.profileExists(c)
-    if (!exists) return { ok: false, error: 'Aucun profil ne correspond à ce code.' }
+    if (exists?.locked) return { ok: false, error: 'Trop de tentatives de connexion : réessayez dans 15 minutes.' }
+    if (!exists?.ok) return { ok: false, error: 'Aucun profil ne correspond à ce code.' }
     localStorage.setItem(ACTIVE_CODE_KEY, c)
     localStorage.setItem(ACTIVE_AT_KEY, String(Date.now()))
     setCode(c)
+    try {
+      const admin = await profileStore.checkAdmin(c)
+      setIsAdmin(admin?.ok === true && !admin?.locked)
+    } catch {
+      setIsAdmin(false)
+    }
     return { ok: true }
   }, [])
 
@@ -335,11 +349,27 @@ export function AppProvider({ children }) {
         if (err.message === 'code_exists') {
           return { ok: false, error: 'Ce code est déjà utilisé. Choisissez un autre code.' }
         }
+        if (err.message === 'code_too_short') {
+          return { ok: false, error: 'Le code doit contenir au moins 8 caractères.' }
+        }
         return { ok: false, error: 'Échec de la création : ' + (err.message || 'erreur réseau') }
       }
     },
     []
   )
+
+  const changeAdminCode = useCallback(async (oldCode, newCode) => {
+    try {
+      const res = await profileStore.setAdminCode(oldCode, newCode)
+      if (res?.error === 'bad_old') return { ok: false, error: "L'ancien code administrateur est incorrect." }
+      if (res?.error === 'code_too_short') return { ok: false, error: 'Le nouveau code doit contenir au moins 8 caractères.' }
+      if (res?.error === 'locked') return { ok: false, error: 'Trop de tentatives : réessayez dans 15 minutes.' }
+      if (res?.ok !== true) return { ok: false, error: 'Échec du changement de code.' }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: 'Échec du changement de code : ' + (err.message || 'erreur réseau') }
+    }
+  }, [])
 
   const disconnect = useCallback(() => {
     localStorage.removeItem(ACTIVE_CODE_KEY)
@@ -354,6 +384,7 @@ export function AppProvider({ children }) {
     setPockets([])
     setNotes([])
     setLoaded(false)
+    setIsAdmin(false)
     if (saveTimer.current) clearTimeout(saveTimer.current)
     pendingPayload.current = null
     revRef.current = 0
@@ -558,9 +589,10 @@ export function AppProvider({ children }) {
 
 const value = {
     tasks, teams, assignments, members, prepTasks, notes, pockets,
-    activeProfile, code, isAdmin: code === ADMIN_CODE,
+    activeProfile, code, isAdmin,
     loading, error, saveState, resolveConflict,
     connectProfile, createProfile, disconnect, deleteProfile,
+    changeAdminCode,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
     addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,
