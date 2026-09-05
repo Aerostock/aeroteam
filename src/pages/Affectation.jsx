@@ -125,9 +125,19 @@ export default function Affectation() {
     return groups
   }
 
+  const manualAssign = (taskId, teamId) => {
+    setLastAutoAssignments(null)
+    assignTask(taskId, teamId)
+  }
+
+  const manualUnassign = (taskId) => {
+    setLastAutoAssignments(null)
+    unassignTask(taskId)
+  }
+
   const handleDrop = (teamId) => {
     if (dragTask) {
-      assignTask(dragTask, teamId)
+      manualAssign(dragTask, teamId)
     }
     setDragTask(null)
   }
@@ -154,7 +164,7 @@ export default function Affectation() {
   // Affecter tout un bloc à une équipe
   const assignWholeBlock = (block, teamId) => {
     const unassigned = tasks.filter((t) => t.taskType === block && !assignments[t.id])
-    unassigned.forEach((t) => assignTask(t.id, teamId))
+    unassigned.forEach((t) => manualAssign(t.id, teamId))
   }
 
   // Affecter toutes les tâches d'un bloc ET d'une zone à une équipe
@@ -162,7 +172,7 @@ export default function Affectation() {
     const unassigned = tasks.filter(
       (t) => t.taskType === block && (t.workArea || 'Autre') === zone && !assignments[t.id]
     )
-    unassigned.forEach((t) => assignTask(t.id, teamId))
+    unassigned.forEach((t) => manualAssign(t.id, teamId))
   }
 
   const bulkSelectValue = ''
@@ -398,19 +408,35 @@ export default function Affectation() {
                                       >
                                         {assignedTeam?.name}
                                       </span>
-                                      <button
-                                        onClick={() => unassignTask(task.id)}
-                                        className="text-slate-400 hover:text-red-600"
-                                        title="Retirer"
+                                      <select
+                                        value={assigned}
+                                        onChange={(e) => {
+                                          const v = e.target.value
+                                          if (v && v !== assigned) manualAssign(task.id, v)
+                                        }}
+                                        className="border border-slate-300 rounded-md px-2 py-1 text-xs shrink-0"
+                                        title="Changer d'équipe"
                                       >
-                                        <Undo2 className="h-4 w-4" />
+                                        <option value={assigned}>Changer d'équipe…</option>
+                                        {teams
+                                          .filter((t) => t.id !== assigned)
+                                          .map((t) => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                          ))}
+                                      </select>
+                                      <button
+                                        onClick={() => manualUnassign(task.id)}
+                                        className="flex items-center gap-1 text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-md px-2 py-1"
+                                        title="Retirer cette tâche de l'équipe (elle redevient non assignée)"
+                                      >
+                                        <Undo2 className="h-3.5 w-3.5" /> Retirer
                                       </button>
                                     </div>
                                   ) : (
                                     <select
                                       defaultValue=""
                                       onChange={(e) => {
-                                        if (e.target.value) assignTask(task.id, e.target.value)
+                                        if (e.target.value) manualAssign(task.id, e.target.value)
                                       }}
                                       className="border border-slate-300 rounded-md px-2 py-1 text-xs shrink-0"
                                       title="Affecter cette ligne"
