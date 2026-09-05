@@ -244,6 +244,15 @@ export function AppProvider({ children }) {
           return
         }
         applyProfileData(profile)
+        // Session déjà active (rechargement de page) : on re-vérifie le statut admin
+        profileStore
+          .checkAdmin(code)
+          .then((admin) => {
+            if (!cancelled) setIsAdmin(admin?.ok === true && !admin?.locked)
+          })
+          .catch(() => {
+            if (!cancelled) setIsAdmin(false)
+          })
         setLoaded(true)
       })
       .catch((err) => {
