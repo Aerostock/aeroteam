@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { ShieldCheck, UserPlus, Plus, KeyRound } from 'lucide-react'
+import * as profileStore from '../lib/profileStore'
+import { ShieldCheck, UserPlus, Plus, KeyRound, Trash2, Users } from 'lucide-react'
 
 export default function Admin() {
   const { createProfile, activeProfile, changeAdminCode } = useApp()
@@ -18,6 +19,54 @@ export default function Admin() {
   const [changing, setChanging] = useState(false)
   const [adminError, setAdminError] = useState('')
   const [adminSuccess, setAdminSuccess] = useState('')
+
+  const [profiles, setProfiles] = useState(null)
+  const [profilesError, setProfilesError] = useState('')
+  const [deleting, setDeleting] = useState(null)
+
+  useEffect(() => {
+    if (!activeProfile?.code) return
+    let cancelled = false
+    // eslint-disable-next-line react/set-state-in-effect -- chargement initial de la liste des profils
+    setProfilesError('')
+    profileStore
+      .listProfiles(activeProfile.code)
+      .then((res) => {
+        if (cancelled) return
+        if (res?.error) setProfilesError("Impossible de charger la liste des profils.")
+        else setProfiles(res.profiles || [])
+      })
+      .catch(() => {
+        if (!cancelled) setProfilesError('Impossible de charger la liste des profils.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeProfile?.code])
+
+  const handleDeleteProfile = async (profile) => {
+    if (!activeProfile?.code) return
+    if (
+      !window.confirm(
+        `Supprimer définitivement le profil « ${profile.name} » ?\n\nToutes ses données (tâches, équipes, affectations, notes…) seront effacées. Cette action est IRREVERSIBLE.`
+      )
+    ) {
+      return
+    }
+    setDeleting(profile.id)
+    setProfilesError('')
+    try {
+      const res = await profileStore.adminDeleteProfile(activeProfile.code, profile.id)
+      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjà plus.")
+      else if (res?.error === 'not_admin') setProfilesError("Le code administrateur n'est plus valide.")
+      else if (res?.ok) {
+        setProfiles((prev) => prev.filter((p) => p.id !== profile.id))
+      }
+    } catch {
+      setProfilesError('Échec de la suppression du profil.')
+    }
+    setDeleting(null)
+  }
 
   const handleCreate = async () => {
     setCreating(true)
@@ -100,6 +149,74 @@ export default function Admin() {
             <Plus className="h-4 w-4" /> {creating ? 'Création…' : 'Créer le profil'}
           </button>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
+          <Users className="h-5 w-5 text-sky-500" /> Profils existants
+          {profiles && <span className="text-sm font-normal text-slate-400">({profiles.length})</span>}
+        </h2>
+        <p className="text-xs text-slate-500 mb-3">
+          Les codes de connexion ne sont jamais affichés par sécurité.
+        </p>
+        {profilesError && <p className="text-sm text-red-600 mb-3">{profilesError}</p>}
+        {profiles === null && !profilesError && (
+          <p className="text-sm text-slate-400">Chargement…</p>
+        )}
+        {profiles && profiles.length === 0 && (
+          <p className="text-sm text-slate-400">Aucun profil pour le moment.</p>
+        )}
+        {profiles && profiles.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left bg-slate-50 border-b">
+                  <th className="px-3 py-2 font-semibold text-slate-700">Nom</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Créé le</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {profiles.map((profile) => {
+                  const isSelf = profile.id === activeProfile?.id
+                  return (
+                    <tr key={profile.id} className="border-b hover:bg-slate-50">
+                      <td className="px-3 py-2 font-medium">
+                        {profile.name}
+                        {isSelf && (
+                          <span className="ml-2 text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">
+                            votre profil
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">{profile.aircraft || '—'}</td>
+                      <td className="px-3 py-2 text-slate-500">
+                        {profile.created_at
+                          ? new Date(profile.created_at).toLocaleDateString('fr-FR')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {isSelf ? (
+                          <span className="text-xs text-slate-300 italic">non supprimable</span>
+                        ) : (
+                          <button
+                            onClick={() => handleDeleteProfile(profile)}
+                            disabled={deleting === profile.id}
+                            className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+                            title={`Supprimer le profil « ${profile.name} »`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">

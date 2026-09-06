@@ -48,6 +48,23 @@ export async function setAdminCode(oldCode, newCode) {
   return data
 }
 
+export async function listProfiles(adminCode) {
+  const { data, error } = await supabase.rpc('admin_list_profiles', {
+    p_admin_code: adminCode,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminDeleteProfile(adminCode, id) {
+  const { data, error } = await supabase.rpc('admin_delete_profile', {
+    p_admin_code: adminCode,
+    p_id: id,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function saveProfileData(code, dataObj, rev = 0, force = false) {
   const { data, error } = await supabase.rpc('save_profile_data', {
     p_code: code,
