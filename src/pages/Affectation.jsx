@@ -705,7 +705,7 @@ export default function Affectation() {
                               className="px-2 py-1 text-[11px] font-bold text-white"
                               style={{ backgroundColor: color }}
                             >
-                              {blk} · {zone}{' '}
+                              {getCategoryLabel(blk)} · {zone}{' '}
                               <span className="font-normal opacity-90">
                                 ({info.count} tâche{info.count > 1 ? 's' : ''})
                               </span>

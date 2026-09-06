@@ -418,7 +418,7 @@ export default function Dashboard() {
                                       className="px-2 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
                                       style={{ backgroundColor: blkColor }}
                                     >
-                                      {blk}
+                                      {getCategoryLabel(blk)}
                                     </span>
                                     <span
                                       className="px-2 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
