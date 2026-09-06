@@ -1,6 +1,15 @@
 import { useMemo, useEffect, useState } from 'react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useApp } from '../context/AppContext'
-import { getCategoryColor, getZoneColor, groupTasksByCategory, getFirstName, getCategoryLabel } from '../utils/helpers'
+import {
+  getCategoryColor,
+  getZoneColor,
+  groupTasksByCategory,
+  getFirstName,
+  getCategoryLabel,
+  hexToRgb,
+} from '../utils/helpers'
 import {
   ClipboardList,
   CheckCircle2,
@@ -11,6 +20,7 @@ import {
   ChevronRight,
   X,
   Printer,
+  FileDown,
 } from 'lucide-react'
 
 function groupByZone(blockTasks) {
@@ -69,6 +79,102 @@ export default function Dashboard() {
     `
     document.head.appendChild(style)
     window.print()
+  }
+
+  const exportTeamPdf = () => {
+    if (!selectedTeam || !selectedTeamTasks.length) return
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 10
+    const contentWidth = pageWidth - margin * 2
+
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text(selectedTeam.name, margin, 15)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(
+      `${selectedTeamTasks.length} tâche(s) · ${selectedTeam.members.length} membre(s) : ${
+        selectedTeam.members.join(', ') || '—'
+      } · ${new Date().toLocaleDateString('fr-FR')}`,
+      margin,
+      21
+    )
+
+    const groups = {}
+    selectedTeamTasks.forEach((t) => {
+      const blk = t.taskType || 'AUTRE'
+      const zone = t.workArea || 'Sans zone'
+      if (!groups[blk]) groups[blk] = { zones: {} }
+      if (!groups[blk].zones[zone]) groups[blk].zones[zone] = []
+      groups[blk].zones[zone].push(t)
+    })
+
+    let y = 28
+    Object.entries(groups).forEach(([blk, info]) => {
+      const zoneNames = Object.keys(info.zones).sort()
+      const count = zoneNames.reduce((acc, z) => acc + info.zones[z].length, 0)
+      if (y > pageHeight - 25) {
+        doc.addPage()
+        y = 14
+      }
+      doc.setFillColor(...hexToRgb(getCategoryColor(blk)))
+      doc.rect(margin, y, contentWidth, 7, 'F')
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(255, 255, 255)
+      doc.text(`Bloc ${getCategoryLabel(blk)} · ${count} tâche(s)`, margin + 2, y + 4.6)
+      doc.setTextColor(0, 0, 0)
+      y += 10
+
+      zoneNames.forEach((zone) => {
+        const zoneTasks = info.zones[zone]
+        autoTable(doc, {
+          startY: y,
+          pageBreak: 'auto',
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              {
+                content: `${zone} (${zoneTasks.length})`,
+                colSpan: 4,
+                styles: {
+                  fillColor: [226, 232, 240],
+                  textColor: [30, 41, 59],
+                  fontStyle: 'bold',
+                  fontSize: 9,
+                },
+              },
+            ],
+          ],
+          body: zoneTasks.map((t) => [
+            t.seq !== undefined && t.seq !== '' ? String(t.seq) : '—',
+            t.taskBarcode || '—',
+            t.description || '',
+            t.registration || '—',
+          ]),
+          styles: { fontSize: 8, cellPadding: 1.2 },
+          columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 30 },
+            3: { cellWidth: 26 },
+          },
+        })
+        y = doc.lastAutoTable.finalY + 5
+        if (y > pageHeight - 15) {
+          doc.addPage()
+          y = 14
+        }
+      })
+    })
+
+    doc.save(
+      `equipe-${selectedTeam.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'sans-nom'}-${new Date().toISOString().slice(0, 10)}.pdf`
+    )
   }
 
   const zones = useMemo(() => {
@@ -358,6 +464,14 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={exportTeamPdf}
+                  disabled={selectedTeamTasks.length === 0}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
+                  title="Exporter la charge de l'équipe en PDF"
+                >
+                  <FileDown className="h-4 w-4" /> Exporter en PDF
+                </button>
                 <button
                   onClick={handlePrint}
                   className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"

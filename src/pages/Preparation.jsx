@@ -3,7 +3,14 @@ import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useApp } from '../context/AppContext'
-import { detectColumns, parseExcelRows, getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
+import {
+  detectColumns,
+  parseExcelRows,
+  getCategoryColor,
+  getZoneColor,
+  getCategoryLabel,
+  hexToRgb,
+} from '../utils/helpers'
 import {
   Upload,
   FileSpreadsheet,
@@ -19,12 +26,6 @@ import {
   Check,
   FileDown,
 } from 'lucide-react'
-
-function hexToRgb(hex) {
-  const h = String(hex || '').replace('#', '')
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return [100, 116, 139]
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
-}
 
 const PRINT_STYLE_ID = 'aero-print-style'
 

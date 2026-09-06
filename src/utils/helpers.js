@@ -57,6 +57,12 @@ export function getZoneColor(zone, _allZones) {
   return ZONE_COLORS[hash % ZONE_COLORS.length]
 }
 
+export function hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return [100, 116, 139]
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
 // Filtres configurables pour l'import
 export const IMPORT_FILTERS = {
   // Colonne Skills (F) : garder toutes valeurs CABB*
