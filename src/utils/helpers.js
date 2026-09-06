@@ -48,9 +48,13 @@ export const ZONE_COLORS = [
   '#6366f1',
 ]
 
-export function getZoneColor(zone, allZones) {
-  const index = allZones.indexOf(zone)
-  return ZONE_COLORS[index % ZONE_COLORS.length]
+export function getZoneColor(zone, _allZones) {
+  if (!zone) return ZONE_COLORS[0]
+  let hash = 0
+  for (let i = 0; i < zone.length; i++) {
+    hash = (hash * 31 + zone.charCodeAt(i)) >>> 0
+  }
+  return ZONE_COLORS[hash % ZONE_COLORS.length]
 }
 
 // Filtres configurables pour l'import

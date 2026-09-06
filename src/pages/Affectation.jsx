@@ -53,17 +53,14 @@ export default function Affectation() {
   }
 
   // Sous-blocs (zones) par bloc avec leur nombre de tâches sans équipe
-  const allBlockZones = useMemo(() => {
-    const map = {}
-    tasks.forEach((t) => {
-      if (assignments[t.id]) return
-      const block = t.taskType || 'AUTRE'
-      const zone = t.workArea || 'Autre'
-      if (!map[block]) map[block] = {}
-      map[block][zone] = (map[block][zone] || 0) + 1
-    })
-    return map
-  }, [tasks, assignments])
+  const allBlockZones = {}
+  tasks.forEach((t) => {
+    if (assignments[t.id]) return
+    const block = t.taskType || 'AUTRE'
+    const zone = t.workArea || 'Autre'
+    if (!allBlockZones[block]) allBlockZones[block] = {}
+    allBlockZones[block][zone] = (allBlockZones[block][zone] || 0) + 1
+  })
 
   const autoScopeTasks = useMemo(
     () =>
@@ -163,9 +160,7 @@ export default function Affectation() {
     return [...new Set(tasks.map((t) => t.workArea).filter(Boolean))].sort()
   }, [tasks])
 
-  const blocks = useMemo(() => {
-    return [...new Set(tasks.map((t) => t.taskType).filter(Boolean))].sort()
-  }, [tasks])
+  const blocks = [...new Set(tasks.map((t) => t.taskType).filter(Boolean))].sort()
 
   const toggleBlock = (block) => {
     setSelectedBlocks((prev) =>
@@ -177,9 +172,7 @@ export default function Affectation() {
   const selectNone = () => setSelectedBlocks([...blocks])
 
   // selectedBlocks = blocs masqués. Vide => tout affiché.
-  const visibleBlocksList = useMemo(() => {
-    return blocks.filter((b) => !selectedBlocks.includes(b))
-  }, [blocks, selectedBlocks])
+  const visibleBlocksList = blocks.filter((b) => !selectedBlocks.includes(b))
 
   // Grouper par bloc
   const groupedByBlock = useMemo(() => {

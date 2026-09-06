@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import * as profileStore from '../lib/profileStore'
-import { dedupeAndMerge, makeId } from '../utils/helpers'
+import { taskActions } from './tasks'
+import { teamActions } from './teams'
+import { prepActions } from './preparation'
+import { pocketActions } from './pockets'
+import { noteActions } from './notes'
 
 const AppContext = createContext(null)
 
@@ -20,7 +24,7 @@ function loadActiveCode() {
       return ''
     }
     return code
-  } catch (e) {
+  } catch {
     return ''
   }
 }
@@ -205,6 +209,7 @@ export function AppProvider({ children }) {
   // Charger le profil + ses données depuis Supabase quand le code change
   useEffect(() => {
     if (!code) {
+      // eslint-disable-next-line react/set-state-in-effect -- réinitialisation volontaire à la déconnexion
       setActiveProfile(null)
       setTasks([])
       setTeams([])
@@ -419,62 +424,23 @@ export function AppProvider({ children }) {
     [code, isConnected, disconnect]
   )
 
-  const addTasks = useCallback((newTasks) => {
-    setTasks((prev) => dedupeAndMerge(prev, newTasks))
-  }, [])
-
-  const addTeam = useCallback((team) => {
-    setTeams((prev) => [...prev, { ...team, locked: false, id: makeId('team') }])
-  }, [])
-
-  const updateTeam = useCallback((id, updates) => {
-    setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)))
-  }, [])
-
-  const removeTeam = useCallback((id) => {
-    setTeams((prev) => prev.filter((t) => t.id !== id))
-    setAssignments((prev) => {
-      const next = { ...prev }
-      Object.keys(next).forEach((k) => {
-        if (next[k] === id) delete next[k]
-      })
-      return next
-    })
-  }, [])
-
-  const assignTask = useCallback((taskId, teamId) => {
-    setAssignments((prev) => ({ ...prev, [taskId]: teamId }))
-  }, [])
-
-  const unassignTask = useCallback((taskId) => {
-    setAssignments((prev) => {
-      const next = { ...prev }
-      delete next[taskId]
-      return next
-    })
-  }, [])
-
-  const removeTask = useCallback((taskId) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
-    setAssignments((prev) => {
-      const next = { ...prev }
-      delete next[taskId]
-      return next
-    })
-  }, [])
-
-  const removeTasksByBlock = useCallback(
-    (block) => {
-      const idsToRemove = tasks.filter((t) => t.taskType === block).map((t) => t.id)
-      setTasks((prev) => prev.filter((t) => t.taskType !== block))
-      setAssignments((prev) => {
-        const next = { ...prev }
-        idsToRemove.forEach((id) => delete next[id])
-        return next
-      })
-    },
-    [tasks]
-  )
+  const { addTasks, assignTask, unassignTask, removeTask, removeTasksByBlock } = taskActions({
+    tasks,
+    setTasks,
+    setAssignments,
+  })
+  const { addTeam, updateTeam, removeTeam, addMember, addMembers, removeMember } = teamActions({
+    setTeams,
+    setAssignments,
+    setMembers,
+  })
+  const { addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks } = prepActions({
+    setPrepTasks,
+    setPockets,
+  })
+  const { addPocket, renamePocket, addTasksToPocket, removeTasksFromPocket, removePocket } =
+    pocketActions({ setPockets })
+  const { addNote, updateNote, removeNote } = noteActions({ setNotes })
 
   const resetData = useCallback(() => {
     setTasks([])
@@ -482,118 +448,6 @@ export function AppProvider({ children }) {
     setAssignments({})
     setPrepTasks([])
     setPockets([])
-  }, [])
-
-  const addPrepTasks = useCallback((newTasks) => {
-    setPrepTasks((prev) => dedupeAndMerge(prev, newTasks))
-  }, [])
-
-  const removePrepTask = useCallback((taskId) => {
-    setPrepTasks((prev) => prev.filter((t) => t.id !== taskId))
-    setPockets((prev) =>
-      prev.map((p) => ({ ...p, taskIds: p.taskIds.filter((id) => id !== taskId) }))
-    )
-  }, [])
-
-  const removePrepTasksByBlock = useCallback((block) => {
-    setPrepTasks((prev) => {
-      const removedIds = prev.filter((t) => t.taskType === block).map((t) => t.id)
-      setPockets((prevPockets) =>
-        prevPockets.map((p) => ({
-          ...p,
-          taskIds: p.taskIds.filter((id) => !removedIds.includes(id)),
-        }))
-      )
-      return prev.filter((t) => t.taskType !== block)
-    })
-  }, [])
-
-  const clearPrepTasks = useCallback(() => {
-    setPrepTasks([])
-    setPockets([])
-  }, [])
-
-  const addPocket = useCallback((name) => {
-    const trimmed = String(name || '').trim()
-    if (!trimmed) return null
-    const id = makeId('pocket')
-    setPockets((prev) => [
-      ...prev,
-      { id, name: trimmed, taskIds: [], createdAt: Date.now() },
-    ])
-    return id
-  }, [])
-
-  const renamePocket = useCallback((pocketId, name) => {
-    const trimmed = String(name || '').trim()
-    setPockets((prev) =>
-      prev.map((p) => (p.id === pocketId ? { ...p, name: trimmed || p.name } : p))
-    )
-  }, [])
-
-  const addTasksToPocket = useCallback((pocketId, taskIds) => {
-    const ids = [...new Set(taskIds)]
-    setPockets((prev) =>
-      prev.map((p) =>
-        p.id === pocketId
-          ? { ...p, taskIds: [...new Set([...p.taskIds, ...ids])] }
-          : p
-      )
-    )
-  }, [])
-
-  const removeTasksFromPocket = useCallback((pocketId, taskIds) => {
-    const ids = new Set(taskIds)
-    setPockets((prev) =>
-      prev.map((p) =>
-        p.id === pocketId ? { ...p, taskIds: p.taskIds.filter((id) => !ids.has(id)) } : p
-      )
-    )
-  }, [])
-
-  const removePocket = useCallback((pocketId) => {
-    setPockets((prev) => prev.filter((p) => p.id !== pocketId))
-  }, [])
-
-  const addNote = useCallback((title, content) => {
-    setNotes((prev) => [
-      { id: makeId('note'), title, content, createdAt: Date.now() },
-      ...prev,
-    ])
-  }, [])
-
-  const updateNote = useCallback((id, updates) => {
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updates } : n)))
-  }, [])
-
-  const removeNote = useCallback((id) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id))
-  }, [])
-
-  const addMember = useCallback((name) => {
-    const trimmed = String(name).trim()
-    if (!trimmed) return
-    setMembers((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]))
-  }, [])
-
-  const addMembers = useCallback((names) => {
-    setMembers((prev) => {
-      const next = [...prev]
-      names.forEach((n) => {
-        const trimmed = String(n).trim()
-        if (trimmed && !next.includes(trimmed)) next.push(trimmed)
-      })
-      return next
-    })
-  }, [])
-
-  const removeMember = useCallback((name) => {
-    setMembers((prev) => prev.filter((m) => m !== name))
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.members.includes(name) ? { ...t, members: t.members.filter((m) => m !== name) } : t
-      )
-    )
   }, [])
 
 const value = {

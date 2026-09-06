@@ -4,12 +4,12 @@ import {
   dedupeAndMerge,
   normalizeHeader,
   detectColumns,
-  filterRow,
   parseExcelRows,
   getCategoryColor,
   getCategoryLabel,
   getFirstName,
   groupTasksByCategory,
+  getZoneColor,
 } from './helpers'
 
 describe('makeId', () => {
@@ -159,6 +159,18 @@ describe('getFirstName', () => {
     expect(getFirstName('Mme Lea Damagnez')).toBe('Lea')
     expect(getFirstName('Jean Dupont')).toBe('Jean')
     expect(getFirstName('')).toBe('')
+  })
+})
+
+describe('getZoneColor', () => {
+  it('donne une couleur stable par zone (indépendante de la liste)', () => {
+    expect(getZoneColor('WING L', ['WING L', 'ENG'])).toBe(getZoneColor('WING L', []))
+    expect(getZoneColor('WING L')).toBeDefined()
+    expect(getZoneColor('')).toBeDefined()
+    // Même nom = même couleur dans tous les cas
+    expect(getZoneColor('FUSELAGE', ['WING L', 'FUSELAGE'])).toBe(
+      getZoneColor('FUSELAGE', ['FUSELAGE', 'WING L'])
+    )
   })
 })
 
