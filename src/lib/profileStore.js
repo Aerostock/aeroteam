@@ -65,6 +65,17 @@ export async function adminDeleteProfile(adminCode, id) {
   return data
 }
 
+export async function adminUpdateProfile(adminCode, id, name, aircraft) {
+  const { data, error } = await supabase.rpc('admin_update_profile', {
+    p_admin_code: adminCode,
+    p_id: id,
+    p_name: name,
+    p_aircraft: aircraft,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function saveProfileData(code, dataObj, rev = 0, force = false) {
   const { data, error } = await supabase.rpc('save_profile_data', {
     p_code: code,

@@ -385,6 +385,17 @@ export function AppProvider({ children }) {
     }
   }, [])
 
+  const updateOwnProfile = useCallback(async ({ name, aircraft }) => {
+    try {
+      const res = await profileStore.updateProfileMeta(codeRef.current, name, aircraft)
+      if (res?.error === 'not_found') return { ok: false, error: 'Profil introuvable.' }
+      setActiveProfile((prev) => (prev ? { ...prev, name, aircraft } : prev))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: 'Échec de la mise à jour : ' + (err.message || 'erreur réseau') }
+    }
+  }, [])
+
   const disconnect = useCallback(() => {
     localStorage.removeItem(ACTIVE_CODE_KEY)
     localStorage.removeItem(ACTIVE_AT_KEY)
@@ -455,7 +466,7 @@ const value = {
     activeProfile, code, isAdmin,
     loading, error, saveState, resolveConflict,
     connectProfile, createProfile, disconnect, deleteProfile,
-    changeAdminCode,
+    changeAdminCode, updateOwnProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
     removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
     addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,

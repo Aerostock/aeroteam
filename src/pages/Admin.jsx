@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as profileStore from '../lib/profileStore'
-import { ShieldCheck, UserPlus, Plus, KeyRound, Trash2, Users } from 'lucide-react'
+import { ShieldCheck, UserPlus, Plus, KeyRound, Trash2, Users, Pencil, Check, X } from 'lucide-react'
 
 export default function Admin() {
-  const { createProfile, activeProfile, changeAdminCode } = useApp()
+  const { createProfile, activeProfile, changeAdminCode, updateOwnProfile } = useApp()
 
   const [newName, setNewName] = useState('')
   const [newAircraft, setNewAircraft] = useState('')
@@ -23,6 +23,61 @@ export default function Admin() {
   const [profiles, setProfiles] = useState(null)
   const [profilesError, setProfilesError] = useState('')
   const [deleting, setDeleting] = useState(null)
+
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editAircraft, setEditAircraft] = useState('')
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const startEditProfile = (profile) => {
+    setEditingId(profile.id)
+    setEditName(profile.name)
+    setEditAircraft(profile.aircraft || '')
+    setEditError('')
+  }
+
+  const cancelEditProfile = () => {
+    setEditingId(null)
+    setEditError('')
+  }
+
+  const saveEditProfile = async (profile) => {
+    const name = editName.trim()
+    if (!name) {
+      setEditError('Le nom est obligatoire.')
+      return
+    }
+    setEditSaving(true)
+    setEditError('')
+    const isSelf = profile.id === activeProfile?.id
+    let res
+    if (isSelf) {
+      res = await updateOwnProfile({ name, aircraft: editAircraft.trim() })
+    } else {
+      try {
+        res = await profileStore.adminUpdateProfile(
+          activeProfile?.code,
+          profile.id,
+          name,
+          editAircraft.trim()
+        )
+      } catch {
+        res = { ok: false, error: 'Échec de la mise à jour : erreur réseau.' }
+      }
+    }
+    if (!res.ok) {
+      setEditError(res.error || 'Échec de la mise à jour.')
+    } else {
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === profile.id ? { ...p, name, aircraft: editAircraft.trim() || p.aircraft } : p
+        )
+      )
+      setEditingId(null)
+    }
+    setEditSaving(false)
+  }
 
   useEffect(() => {
     if (!activeProfile?.code) return
@@ -180,6 +235,45 @@ export default function Admin() {
               <tbody>
                 {profiles.map((profile) => {
                   const isSelf = profile.id === activeProfile?.id
+                  const isEditing = editingId === profile.id
+                  if (isEditing) {
+                    return (
+                      <tr key={profile.id} className="border-b bg-sky-50/50">
+                        <td className="px-3 py-2" colSpan={4}>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Nom du profil"
+                              className="flex-1 min-w-[140px] border border-slate-300 rounded-md px-2 py-1 text-sm"
+                              autoFocus
+                            />
+                            <input
+                              value={editAircraft}
+                              onChange={(e) => setEditAircraft(e.target.value)}
+                              placeholder="Avion / immatriculation"
+                              className="flex-1 min-w-[140px] border border-slate-300 rounded-md px-2 py-1 text-sm"
+                            />
+                            {editError && <span className="text-xs text-red-600">{editError}</span>}
+                            <button
+                              onClick={() => saveEditProfile(profile)}
+                              disabled={editSaving}
+                              className="flex items-center gap-1 bg-sky-600 text-white px-2.5 py-1 rounded-md text-xs font-semibold hover:bg-sky-700 disabled:opacity-50"
+                            >
+                              <Check className="h-3.5 w-3.5" /> {editSaving ? 'Enregistrement…' : 'OK'}
+                            </button>
+                            <button
+                              onClick={cancelEditProfile}
+                              className="text-slate-500 hover:text-slate-800 p-1"
+                              title="Annuler"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  }
                   return (
                     <tr key={profile.id} className="border-b hover:bg-slate-50">
                       <td className="px-3 py-2 font-medium">
@@ -196,14 +290,21 @@ export default function Admin() {
                           ? new Date(profile.created_at).toLocaleDateString('fr-FR')
                           : '—'}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => startEditProfile(profile)}
+                          className="text-slate-400 hover:text-sky-600 p-1"
+                          title={`Modifier le profil « ${profile.name} »`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         {isSelf ? (
-                          <span className="text-xs text-slate-300 italic">non supprimable</span>
+                          <span className="text-xs text-slate-300 italic ml-1">non supprimable</span>
                         ) : (
                           <button
                             onClick={() => handleDeleteProfile(profile)}
                             disabled={deleting === profile.id}
-                            className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+                            className="text-slate-400 hover:text-red-600 disabled:opacity-50 ml-1"
                             title={`Supprimer le profil « ${profile.name} »`}
                           >
                             <Trash2 className="h-4 w-4" />

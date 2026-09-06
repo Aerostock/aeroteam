@@ -62,3 +62,36 @@ begin
   return jsonb_build_object('ok', true);
 end;
 $$;
+
+-- 3) Modification d'un profil par id (nom / avion, admin uniquement)
+create or replace function public.admin_update_profile(
+  p_admin_code text,
+  p_id uuid,
+  p_name text,
+  p_aircraft text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  is_admin boolean;
+begin
+  select (public.check_admin(p_admin_code))->>'ok' into is_admin;
+  if is_admin is distinct from 'true' then
+    return jsonb_build_object('error', 'not_admin');
+  end if;
+
+  update public.profiles
+  set name = coalesce(p_name, name),
+      aircraft = coalesce(p_aircraft, aircraft)
+  where id = p_id;
+
+  if not found then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
