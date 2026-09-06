@@ -73,13 +73,13 @@ export const IMPORT_FILTERS = {
       return v.startsWith('CABB')
     },
   },
-  // Colonne MTX_Status (G) : garder ACTV et PAUSE
+  // Colonne MTX_Status (G) : garder ACTV, PAUSE et IN WORK
   mtxStatus: {
     enabled: true,
-    allowed: ['ACTV', 'PAUSE'],
+    allowed: ['ACTV', 'PAUSE', 'IN WORK'],
     match: (value) => {
       const v = String(value || '').toUpperCase().trim()
-      return v === 'ACTV' || v === 'PAUSE'
+      return v === 'ACTV' || v === 'PAUSE' || v === 'IN WORK'
     },
   },
   // Colonne Task_Type (H) : garder tous les blocs

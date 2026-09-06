@@ -77,7 +77,7 @@ export default function ImportExcel() {
         </h3>
         <div className="text-sm text-sky-700 space-y-1">
           <p>• <strong>Skills (colonne F)</strong> : toutes les valeurs commençant par CABB</p>
-          <p>• <strong>MTX Status (colonne G)</strong> : uniquement ACTV et PAUSE</p>
+          <p>• <strong>MTX Status (colonne G)</strong> : uniquement ACTV, PAUSE et IN WORK</p>
           <p>• <strong>Task Type (colonne H)</strong> : tous les blocs (JIC, Found Fault, MPC, ADHOC, EO)</p>
         </div>
       </div>
