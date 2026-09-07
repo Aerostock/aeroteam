@@ -82,23 +82,22 @@ export async function getConsignes() {
   return data
 }
 
-export async function addConsigne(titre, couleur, contenu, updatedBy) {
+export async function addConsigne(titre, couleur, contenuInitial, updatedBy) {
   const { data, error } = await supabase.rpc('add_consigne', {
     p_titre: titre,
     p_couleur: couleur,
-    p_contenu: contenu,
+    p_contenu_initial: contenuInitial,
     p_updated_by: updatedBy,
   })
   if (error) throw error
   return data
 }
 
-export async function saveConsigne(id, titre, couleur, contenu, updatedBy) {
+export async function saveConsigne(id, titre, couleur, updatedBy) {
   const { data, error } = await supabase.rpc('save_consigne', {
     p_id: id,
     p_titre: titre,
     p_couleur: couleur,
-    p_contenu: contenu,
     p_updated_by: updatedBy,
   })
   if (error) throw error
@@ -107,6 +106,29 @@ export async function saveConsigne(id, titre, couleur, contenu, updatedBy) {
 
 export async function deleteConsigne(id) {
   const { data, error } = await supabase.rpc('delete_consigne', { p_id: id })
+  if (error) throw error
+  return data
+}
+
+export async function getMessages(consigneId) {
+  const { data, error } = await supabase.rpc('get_messages', { p_consigne_id: consigneId })
+  if (error) throw error
+  return data
+}
+
+export async function addMessage(consigneId, contenu, images, auteur) {
+  const { data, error } = await supabase.rpc('add_message', {
+    p_consigne_id: consigneId,
+    p_contenu: contenu,
+    p_images: images,
+    p_auteur: auteur,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function deleteMessage(id) {
+  const { data, error } = await supabase.rpc('delete_message', { p_id: id })
   if (error) throw error
   return data
 }
