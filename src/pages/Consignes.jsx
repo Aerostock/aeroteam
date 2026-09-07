@@ -84,6 +84,7 @@ export default function Consignes() {
 
   useEffect(() => {
     if (!selectedId) {
+      // eslint-disable-next-line react/set-state-in-effect -- fermeture de la conversation
       setMessages(null)
       setMessagesError('')
       return
