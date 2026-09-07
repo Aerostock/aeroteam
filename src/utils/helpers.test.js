@@ -10,6 +10,7 @@ import {
   getFirstName,
   groupTasksByCategory,
   getZoneColor,
+  hashCodeKey,
 } from './helpers'
 
 describe('makeId', () => {
@@ -160,6 +161,18 @@ describe('getFirstName', () => {
     expect(getFirstName('Mme Lea Damagnez')).toBe('Lea')
     expect(getFirstName('Jean Dupont')).toBe('Jean')
     expect(getFirstName('')).toBe('')
+  })
+})
+
+describe('hashCodeKey', () => {
+  it('produit une empreinte déterministe et non réversible', async () => {
+    const a = await hashCodeKey('CODE-123')
+    const b = await hashCodeKey('CODE-123')
+    const c = await hashCodeKey('CODE-124')
+    expect(a).toBe(b)
+    expect(a).not.toBe(c)
+    expect(a).not.toContain('CODE-123')
+    expect(a).toMatch(/^[0-9a-f]{16,64}$/)
   })
 })
 

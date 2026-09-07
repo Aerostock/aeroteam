@@ -63,6 +63,21 @@ export function hexToRgb(hex) {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
 }
 
+// Empreinte stable et non réversible d'une chaîne (ex. code de profil),
+// utilisée pour associer un message à son auteur sans exposer le secret
+export async function hashCodeKey(text) {
+  const s = String(text || '')
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
+    return Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  }
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i)
+  return (h >>> 0).toString(16)
+}
+
 // Filtres configurables pour l'import
 export const IMPORT_FILTERS = {
   // Colonne Skills (F) : garder toutes valeurs CABB*

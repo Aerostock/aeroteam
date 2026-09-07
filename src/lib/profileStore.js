@@ -82,12 +82,14 @@ export async function getConsignes() {
   return data
 }
 
-export async function addConsigne(titre, couleur, contenuInitial, updatedBy) {
+export async function addConsigne(titre, couleur, contenu, contenuHtml, updatedBy, auteurKey) {
   const { data, error } = await supabase.rpc('add_consigne', {
     p_titre: titre,
     p_couleur: couleur,
-    p_contenu_initial: contenuInitial,
+    p_contenu: contenu,
+    p_contenu_html: contenuHtml,
     p_updated_by: updatedBy,
+    p_auteur_key: auteurKey,
   })
   if (error) throw error
   return data
@@ -116,19 +118,25 @@ export async function getMessages(consigneId) {
   return data
 }
 
-export async function addMessage(consigneId, contenu, images, auteur) {
+export async function addMessage(consigneId, contenu, contenuHtml, images, auteur, auteurKey) {
   const { data, error } = await supabase.rpc('add_message', {
     p_consigne_id: consigneId,
     p_contenu: contenu,
+    p_contenu_html: contenuHtml,
     p_images: images,
     p_auteur: auteur,
+    p_auteur_key: auteurKey,
   })
   if (error) throw error
   return data
 }
 
-export async function deleteMessage(id) {
-  const { data, error } = await supabase.rpc('delete_message', { p_id: id })
+export async function deleteMessage(id, auteurKey, adminCode) {
+  const { data, error } = await supabase.rpc('delete_message', {
+    p_id: id,
+    p_auteur_key: auteurKey,
+    p_admin_code: adminCode,
+  })
   if (error) throw error
   return data
 }

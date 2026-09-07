@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import DOMPurify from 'dompurify'
 import * as profileStore from '../lib/profileStore'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
+import { hashCodeKey } from '../utils/helpers'
+import RichEditor from '../components/RichEditor'
 import {
   Plus,
   X,
@@ -29,7 +32,7 @@ const PALETTE = [
 ]
 
 export default function Consignes() {
-  const { activeProfile } = useApp()
+  const { activeProfile, code, isAdmin } = useApp()
   const [consignes, setConsignes] = useState(null)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState(null)
@@ -41,14 +44,28 @@ export default function Consignes() {
   const [editTitre, setEditTitre] = useState('')
   const [editCouleur, setEditCouleur] = useState(PALETTE[0])
   const [editContenu, setEditContenu] = useState('')
+  const [editContenuHtml, setEditContenuHtml] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   const [replyText, setReplyText] = useState('')
+  const [replyHtml, setReplyHtml] = useState('')
   const [replyFiles, setReplyFiles] = useState([])
   const [replyPreviews, setReplyPreviews] = useState([])
   const [sending, setSending] = useState(false)
   const [replyError, setReplyError] = useState('')
+
+  const [myKey, setMyKey] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    hashCodeKey(code).then((key) => {
+      if (!cancelled) setMyKey(key)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [code])
 
   const loadConsignes = useCallback(
     async (skipIfEditing) => {
@@ -102,6 +119,7 @@ export default function Consignes() {
     setEditTitre('')
     setEditCouleur(PALETTE[0])
     setEditContenu('')
+    setEditContenuHtml('')
     setSaveError('')
   }
 
@@ -134,7 +152,9 @@ export default function Consignes() {
           titre,
           editCouleur,
           editContenu,
-          activeProfile?.name || ''
+          editContenuHtml,
+          activeProfile?.name || '',
+          myKey
         )
         closeModal()
         await loadConsignes(false)
@@ -164,7 +184,11 @@ export default function Consignes() {
   const removeReply = async (m) => {
     if (!window.confirm('Supprimer cette réponse ? Cette action est irréversible.')) return
     try {
-      await profileStore.deleteMessage(m.id)
+      const res = await profileStore.deleteMessage(m.id, myKey, code)
+      if (res?.error === 'not_authorized') {
+        setMessagesError('Vous ne pouvez supprimer que vos propres réponses.')
+        return
+      }
       if (selectedId) await loadMessages(selectedId)
     } catch {
       setMessagesError("Impossible de supprimer la réponse (hors ligne ?).")
@@ -190,8 +214,7 @@ export default function Consignes() {
   }
 
   const sendReply = async () => {
-    const text = replyText.trim()
-    if (!text && replyFiles.length === 0) return
+    if (!replyText && replyFiles.length === 0) return
     if (!selectedId) return
     setSending(true)
     setReplyError('')
@@ -207,8 +230,9 @@ export default function Consignes() {
         const { data } = supabase.storage.from('consignes-images').getPublicUrl(path)
         urls.push(data.publicUrl)
       }
-      await profileStore.addMessage(selectedId, text, urls, activeProfile?.name || '')
+      await profileStore.addMessage(selectedId, replyText, replyHtml, urls, activeProfile?.name || '', myKey)
       setReplyText('')
+      setReplyHtml('')
       replyPreviews.forEach((p) => URL.revokeObjectURL(p))
       setReplyFiles([])
       setReplyPreviews([])
@@ -222,7 +246,7 @@ export default function Consignes() {
 
   const modalOpen = isNew || editingId !== null
   const selected = consignes?.find((c) => c.id === selectedId) || null
-  const canSend = !sending && (replyText.trim() !== '' || replyFiles.length > 0)
+  const canSend = !sending && (replyText !== '' || replyFiles.length > 0)
 
   return (
     <div className="space-y-6">
@@ -337,7 +361,8 @@ export default function Consignes() {
                 )}
                 {messages &&
                   messages.map((m) => {
-                    const mine = m.auteur === activeProfile?.name
+                    const mine = m.auteur_key && m.auteur_key === myKey
+                    const canDelete = mine || isAdmin
                     return (
                       <div
                         key={m.id}
@@ -356,18 +381,31 @@ export default function Consignes() {
                               · {new Date(m.created_at).toLocaleString('fr-FR')}
                             </span>
                           </span>
-                          <button
-                            onClick={() => removeReply(m)}
-                            className="text-slate-400 hover:text-red-600"
-                            title="Supprimer cette réponse"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => removeReply(m)}
+                              className="text-slate-400 hover:text-red-600"
+                              title={
+                                mine
+                                  ? 'Supprimer votre réponse'
+                                  : 'Supprimer cette réponse (administrateur)'
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                         <div className="p-3">
-                          {m.contenu && (
+                          {m.contenu_html ? (
+                            <div
+                              className="message-html text-sm text-slate-800"
+                              dangerouslySetInnerHTML={{
+                                __html: DOMPurify.sanitize(m.contenu_html),
+                              }}
+                            />
+                          ) : m.contenu ? (
                             <p className="whitespace-pre-wrap text-sm text-slate-800">{m.contenu}</p>
-                          )}
+                          ) : null}
                           {(m.images || []).length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                               {(m.images || []).map((url, i) => (
@@ -389,12 +427,13 @@ export default function Consignes() {
 
               {/* Saisie d'une réponse */}
               <div className="border-t p-4 bg-slate-50">
-                <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
+                <RichEditor
+                  onChange={(html, text) => {
+                    setReplyHtml(html)
+                    setReplyText(text)
+                  }}
                   placeholder={`Répondre à ${selected.titre}…`}
-                  rows={2}
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm resize-y"
+                  minHeight={70}
                 />
                 {replyPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -496,12 +535,13 @@ export default function Consignes() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Premier message
                   </label>
-                  <textarea
-                    value={editContenu}
-                    onChange={(e) => setEditContenu(e.target.value)}
+                  <RichEditor
+                    onChange={(html, text) => {
+                      setEditContenu(text)
+                      setEditContenuHtml(html)
+                    }}
                     placeholder="Le message de lancement du sujet…"
-                    rows={6}
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm resize-y"
+                    minHeight={120}
                   />
                 </div>
               )}
