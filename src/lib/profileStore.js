@@ -76,6 +76,41 @@ export async function adminUpdateProfile(adminCode, id, name, aircraft) {
   return data
 }
 
+export async function getConsignes() {
+  const { data, error } = await supabase.rpc('get_consignes')
+  if (error) throw error
+  return data
+}
+
+export async function addConsigne(titre, couleur, contenu, updatedBy) {
+  const { data, error } = await supabase.rpc('add_consigne', {
+    p_titre: titre,
+    p_couleur: couleur,
+    p_contenu: contenu,
+    p_updated_by: updatedBy,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function saveConsigne(id, titre, couleur, contenu, updatedBy) {
+  const { data, error } = await supabase.rpc('save_consigne', {
+    p_id: id,
+    p_titre: titre,
+    p_couleur: couleur,
+    p_contenu: contenu,
+    p_updated_by: updatedBy,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function deleteConsigne(id) {
+  const { data, error } = await supabase.rpc('delete_consigne', { p_id: id })
+  if (error) throw error
+  return data
+}
+
 export async function saveProfileData(code, dataObj, rev = 0, force = false) {
   const { data, error } = await supabase.rpc('save_profile_data', {
     p_code: code,

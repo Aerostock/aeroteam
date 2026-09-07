@@ -11,6 +11,7 @@ const navItems = [
   { to: '/export', label: 'Export' },
   { to: '/preparation', label: 'Préparation vac suivante' },
   { to: '/notes', label: 'Bloc-notes' },
+  { to: '/consignes', label: 'Consignes' },
 ]
 
 export default function Layout({ children }) {
