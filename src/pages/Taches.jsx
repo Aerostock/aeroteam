@@ -74,7 +74,7 @@ export default function Taches() {
           <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
         </div>
         <div className="w-full sm:w-auto">
-          <ManualTaskForm onAdd={addTasks} />
+          <ManualTaskForm onAdd={addTasks} zoneOptions={zones} />
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative">

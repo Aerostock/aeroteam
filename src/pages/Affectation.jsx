@@ -261,7 +261,7 @@ export default function Affectation() {
       </div>
 
       <div className="w-full sm:w-auto">
-        <ManualTaskForm onAdd={addTasks} />
+        <ManualTaskForm onAdd={addTasks} zoneOptions={zones} />
       </div>
 
       {/* Répartition automatique assistée */}

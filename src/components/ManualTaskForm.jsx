@@ -5,7 +5,7 @@ import { makeId } from '../utils/helpers'
 const BLOCKS = ['JIC', 'CORR', 'MPC', 'ADHOC', 'EO']
 const STATUSES = ['ACTV', 'PAUSE', 'IN WORK']
 
-export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
+export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOptions = [] }) {
   const [open, setOpen] = useState(false)
   const [seq, setSeq] = useState('')
   const [description, setDescription] = useState('')
@@ -13,6 +13,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
   const [skills, setSkills] = useState('')
   const [trfx, setTrfx] = useState('')
   const [status, setStatus] = useState('ACTV')
+  const [subTask, setSubTask] = useState('')
   const [registration, setRegistration] = useState('')
   const [error, setError] = useState('')
 
@@ -33,6 +34,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
       skills: skills.trim() || undefined,
       taskBarcode: trfx.trim() || undefined,
       mtxStatus: status,
+      workArea: subTask.trim() || undefined,
       registration: registration.trim() || undefined,
     })
     setSeq('')
@@ -40,6 +42,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
     setSkills('')
     setTrfx('')
     setStatus('ACTV')
+    setSubTask('')
     setRegistration('')
     setError('')
     setOpen(false)
@@ -120,6 +123,22 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          Sous-tâche
+          <input
+            value={subTask}
+            onChange={(e) => setSubTask(e.target.value)}
+            placeholder={block === 'CORR' ? 'Found Fault' : block}
+            list="manual-task-subtasks"
+            className={`${inputClass} mt-1`}
+            title="Sous-tâche / zone de la ligne (suggestions des lignes existantes)"
+          />
+          <datalist id="manual-task-subtasks">
+            {zoneOptions.map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
         </label>
         <label className="text-xs font-medium text-slate-600">
           Appareil
