@@ -113,10 +113,11 @@ export async function getFolders() {
   return data
 }
 
-export async function addFolder(parentId, name, createdBy) {
+export async function addFolder(parentId, name, couleur, createdBy) {
   const { data, error } = await supabase.rpc('add_folder', {
     p_parent_id: parentId,
     p_name: name,
+    p_couleur: couleur,
     p_created_by: createdBy,
   })
   if (error) throw error
@@ -144,15 +145,17 @@ export async function deleteConsigne(id) {
   return data
 }
 
-export async function getMessages(consigneId) {
-  const { data, error } = await supabase.rpc('get_messages', { p_consigne_id: consigneId })
+export async function getMessages(dossierId) {
+  const { data, error } = await supabase.rpc('get_messages', {
+    p_dossier_id: String(dossierId),
+  })
   if (error) throw error
   return data
 }
 
-export async function addMessage(consigneId, contenu, contenuHtml, images, auteur, auteurKey) {
+export async function addMessage(dossierId, contenu, contenuHtml, images, auteur, auteurKey) {
   const { data, error } = await supabase.rpc('add_message', {
-    p_consigne_id: consigneId,
+    p_dossier_id: String(dossierId),
     p_contenu: contenu,
     p_contenu_html: contenuHtml,
     p_images: images,

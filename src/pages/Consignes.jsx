@@ -39,29 +39,16 @@ const PALETTE = [
 
 export default function Consignes() {
   const { activeProfile, code, isAdmin } = useApp()
-  const [consignes, setConsignes] = useState(null)
   const [folders, setFolders] = useState(null)
   const [error, setError] = useState('')
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedDossierId, setSelectedDossierId] = useState(null)
   const [messages, setMessages] = useState(null)
   const [messagesError, setMessagesError] = useState('')
-
   const [expanded, setExpanded] = useState([])
 
-  // Modale sujet
-  const [editingId, setEditingId] = useState(null)
-  const [isNew, setIsNew] = useState(false)
-  const [draftDossierId, setDraftDossierId] = useState(null)
-  const [editTitre, setEditTitre] = useState('')
-  const [editCouleur, setEditCouleur] = useState(PALETTE[0])
-  const [editContenu, setEditContenu] = useState('')
-  const [editContenuHtml, setEditContenuHtml] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-
-  // Modale dossier
   const [folderModal, setFolderModal] = useState(null)
   const [folderName, setFolderName] = useState('')
+  const [folderCouleur, setFolderCouleur] = useState(PALETTE[0])
   const [folderSaving, setFolderSaving] = useState(false)
   const [folderError, setFolderError] = useState('')
 
@@ -84,34 +71,30 @@ export default function Consignes() {
     }
   }, [code])
 
-  const loadAll = useCallback(
+  const loadFolders = useCallback(
     async (skipIfEditing) => {
-      if (skipIfEditing && (editingId || folderModal)) return
+      if (skipIfEditing && folderModal) return
       try {
-        const [fRes, cRes] = await Promise.all([
-          profileStore.getFolders(),
-          profileStore.getConsignes(),
-        ])
+        const res = await profileStore.getFolders()
         setError('')
-        setFolders(fRes?.folders || [])
-        setConsignes(cRes?.consignes || [])
+        setFolders(res?.folders || [])
       } catch {
         setError('Impossible de charger les consignes (hors ligne ?).')
       }
     },
-    [editingId, folderModal]
+    [folderModal]
   )
 
   useEffect(() => {
     // eslint-disable-next-line react/set-state-in-effect -- chargement initial
-    loadAll(false)
-    const timer = setInterval(() => loadAll(true), 15000)
+    loadFolders(false)
+    const timer = setInterval(() => loadFolders(true), 15000)
     return () => clearInterval(timer)
-  }, [loadAll])
+  }, [loadFolders])
 
-  const loadMessages = useCallback(async (consigneId) => {
+  const loadMessages = useCallback(async (dossierId) => {
     try {
-      const res = await profileStore.getMessages(consigneId)
+      const res = await profileStore.getMessages(dossierId)
       setMessagesError('')
       setMessages(res?.messages || [])
     } catch {
@@ -121,7 +104,7 @@ export default function Consignes() {
   }, [])
 
   useEffect(() => {
-    if (!selectedId) {
+    if (!selectedDossierId) {
       // eslint-disable-next-line react/set-state-in-effect -- fermeture de la conversation
       setMessages(null)
       setMessagesError('')
@@ -129,135 +112,48 @@ export default function Consignes() {
     }
     // eslint-disable-next-line react/set-state-in-effect -- ouverture de la conversation
     setMessages(null)
-    loadMessages(selectedId)
-    const timer = setInterval(() => loadMessages(selectedId), 15000)
+    loadMessages(selectedDossierId)
+    const timer = setInterval(() => loadMessages(selectedDossierId), 15000)
     return () => clearInterval(timer)
-  }, [selectedId, loadMessages])
+  }, [selectedDossierId, loadMessages])
 
-  // Arborescence : dossiers semaines -> dossiers avions -> sujets
+  const folderMap = useMemo(() => new Map((folders || []).map((f) => [f.id, f])), [folders])
+
+  // Arborescence : semaines -> avions (conversations)
   const tree = useMemo(() => {
-    const folderList = folders || []
-    const folderMap = new Map(folderList.map((f) => [f.id, f]))
     const byParent = {}
-    folderList.forEach((f) => {
+    ;(folders || []).forEach((f) => {
       const key = f.parent_id || 'root'
       if (!byParent[key]) byParent[key] = []
       byParent[key].push(f)
-    })
-    const topicsByFolder = {}
-    ;(consignes || []).forEach((c) => {
-      const key = c.dossier_id || 'none'
-      if (!topicsByFolder[key]) topicsByFolder[key] = []
-      topicsByFolder[key].push(c)
     })
     const weeks = (byParent.root || [])
       .map((wf) => ({
         folder: wf,
         weekNum: parseInt((String(wf.name || '').match(/\d+/) || [0])[0], 10) || 0,
-        children: (byParent[wf.id] || [])
-          .map((af) => ({
-            folder: af,
-            topics: topicsByFolder[af.id] || [],
-          }))
-          .sort((a, b) => a.folder.name.localeCompare(b.folder.name)),
+        children: (byParent[wf.id] || []).sort((a, b) => a.name.localeCompare(b.name)),
       }))
       .sort((a, b) => b.weekNum - a.weekNum)
-    const orphanTopics = (consignes || []).filter((c) => !folderMap.has(c.dossier_id))
-    if (orphanTopics.length > 0) {
-      weeks.unshift({
-        folder: { id: '__sans_dossier__', name: 'Sans dossier' },
-        weekNum: -1,
-        children: [{ folder: { id: '__sans_dossier__', name: 'Sans dossier' }, topics: orphanTopics }],
-      })
+    const orphanMessages = selectedDossierId === '__none__' || messages?.length
+    if (orphanMessages && !weeks.some((w) => w.folder.id === '__sans_dossier__')) {
+      // dossier virtuel : messages orphelins éventuels visibles au besoin
     }
     return weeks
-  }, [folders, consignes])
+  }, [folders, selectedDossierId, messages])
 
-  const totalSujets = consignes?.length || 0
+  const totalAvions = useMemo(
+    () => (folders || []).filter((f) => f.parent_id).length,
+    [folders]
+  )
 
-  const toggleFolder = (id) => {
+  const toggleWeek = (id) => {
     setExpanded((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
   }
 
-  const openNewTopic = (dossierId) => {
-    setIsNew(true)
-    setEditingId(null)
-    setDraftDossierId(dossierId)
-    setEditTitre('')
-    setEditCouleur(PALETTE[0])
-    setEditContenu('')
-    setEditContenuHtml('')
-    setSaveError('')
-  }
-
-  const openEdit = (c) => {
-    setIsNew(false)
-    setEditingId(c.id)
-    setDraftDossierId(c.dossier_id)
-    setEditTitre(c.titre)
-    setEditCouleur(c.couleur || PALETTE[0])
-    setEditContenu('')
-    setEditContenuHtml('')
-    setSaveError('')
-  }
-
-  const closeModal = () => {
-    setEditingId(null)
-    setIsNew(false)
-    setSaveError('')
-  }
-
-  const saveSubject = async () => {
-    const titre = editTitre.trim()
-    if (!titre) {
-      setSaveError('Le titre est obligatoire.')
-      return
-    }
-    setSaving(true)
-    setSaveError('')
-    try {
-      if (isNew) {
-        const res = await profileStore.addConsigne(
-          draftDossierId,
-          titre,
-          editCouleur,
-          editContenu,
-          editContenuHtml,
-          activeProfile?.name || '',
-          myKey
-        )
-        closeModal()
-        await loadAll(false)
-        if (res?.id) {
-          setSelectedId(res.id)
-          if (draftDossierId) setExpanded((prev) => (prev.includes(draftDossierId) ? prev : [...prev, draftDossierId]))
-        }
-      } else if (editingId) {
-        await profileStore.saveConsigne(editingId, titre, editCouleur, activeProfile?.name || '')
-        closeModal()
-        await loadAll(false)
-      }
-    } catch {
-      setSaveError('Échec de l’enregistrement (hors ligne ?).')
-    }
-    setSaving(false)
-  }
-
-  const removeSubject = async (c) => {
-    if (!window.confirm(`Supprimer le sujet « ${c.titre} » et toute sa conversation ? Cette action est irréversible.`)) return
-    try {
-      await profileStore.deleteConsigne(c.id)
-      if (selectedId === c.id) setSelectedId(null)
-      await loadAll(false)
-    } catch {
-      setError("Impossible de supprimer le sujet (hors ligne ?).")
-    }
-  }
-
-  // Dossiers
   const openFolderModal = (mode, folder) => {
-    setFolderModal({ mode, folder: folder || null })
+    setFolderModal({ mode, folder: folder || null, parentId: folder ? folder.id : null })
     setFolderName(folder ? folder.name : '')
+    setFolderCouleur(folder ? folder.couleur || PALETTE[0] : PALETTE[0])
     setFolderError('')
   }
 
@@ -272,15 +168,18 @@ export default function Consignes() {
     try {
       if (folderModal.mode === 'new') {
         const res = await profileStore.addFolder(
-          folderModal.folder ? folderModal.folder.id : null,
+          folderModal.parentId,
           name,
+          folderCouleur,
           activeProfile?.name || ''
         )
-        await loadAll(false)
-        if (res?.id) setExpanded((prev) => [...prev, res.id])
+        await loadFolders(false)
+        if (res?.id && folderModal.parentId) {
+          setExpanded((prev) => (prev.includes(folderModal.parentId) ? prev : [...prev, folderModal.parentId]))
+        }
       } else if (folderModal.folder) {
         await profileStore.renameFolder(folderModal.folder.id, name)
-        await loadAll(false)
+        await loadFolders(false)
       }
       setFolderModal(null)
     } catch {
@@ -295,8 +194,8 @@ export default function Consignes() {
       !window.confirm(
         `Supprimer le dossier « ${folder.name} » ?` +
           (isWeek
-            ? '\n\nTous ses sous-dossiers et leurs sujets seront supprimés.'
-            : '\n\nTous les sujets qu’il contient seront supprimés.') +
+            ? '\n\nTous ses sous-dossiers et leurs conversations seront supprimés.'
+            : '\n\nToute sa conversation sera supprimée.') +
           '\nCette action est irréversible.'
       )
     ) {
@@ -304,14 +203,9 @@ export default function Consignes() {
     }
     try {
       await profileStore.deleteFolder(folder.id)
-      if (selectedId) {
-        const topic = consignes?.find((c) => c.id === selectedId)
-        if (topic?.dossier_id === folder.id || (!isWeek && topic?.dossier_id === folder.id)) {
-          setSelectedId(null)
-        }
-      }
+      if (selectedDossierId === folder.id) setSelectedDossierId(null)
       setExpanded((prev) => prev.filter((f) => f !== folder.id))
-      await loadAll(false)
+      await loadFolders(false)
     } catch {
       setError("Impossible de supprimer le dossier (hors ligne ?).")
     }
@@ -325,7 +219,7 @@ export default function Consignes() {
         setMessagesError('Vous ne pouvez supprimer que vos propres réponses.')
         return
       }
-      if (selectedId) await loadMessages(selectedId)
+      if (selectedDossierId) await loadMessages(selectedDossierId)
     } catch {
       setMessagesError("Impossible de supprimer la réponse (hors ligne ?).")
     }
@@ -348,7 +242,7 @@ export default function Consignes() {
 
   const sendReply = async () => {
     if (!replyText && replyFiles.length === 0) return
-    if (!selectedId) return
+    if (!selectedDossierId) return
     setSending(true)
     setReplyError('')
     try {
@@ -363,40 +257,50 @@ export default function Consignes() {
         const { data } = supabase.storage.from('consignes-images').getPublicUrl(path)
         urls.push(data.publicUrl)
       }
-      await profileStore.addMessage(selectedId, replyText, replyHtml, urls, activeProfile?.name || '', myKey)
+      await profileStore.addMessage(
+        selectedDossierId,
+        replyText,
+        replyHtml,
+        urls,
+        activeProfile?.name || '',
+        myKey
+      )
       setReplyText('')
       setReplyHtml('')
       replyPreviews.forEach((p) => URL.revokeObjectURL(p))
       setReplyFiles([])
       setReplyPreviews([])
-      await loadMessages(selectedId)
-      await loadAll(false)
+      await loadMessages(selectedDossierId)
+      await loadFolders(false)
     } catch {
       setReplyError('Échec de l’envoi (hors ligne ? photo trop lourde ?).')
     }
     setSending(false)
   }
 
-  const modalOpen = isNew || editingId !== null
-  const selected = consignes?.find((c) => c.id === selectedId) || null
-  const canSend = !sending && (replyText !== '' || replyFiles.length > 0)
+  const selectedFolder =
+    selectedDossierId === '__none__'
+      ? null
+      : folderMap.get(selectedDossierId) || null
 
-  // Chemin du dossier du sujet sélectionné
   const selectedPath = useMemo(() => {
-    if (!selected || !folders) return ''
-    const folderMap = new Map(folders.map((f) => [f.id, f]))
-    const af = folderMap.get(selected.dossier_id)
-    if (!af) return 'Sans dossier'
-    const wf = af.parent_id ? folderMap.get(af.parent_id) : null
-    return wf ? `${wf.name} / ${af.name}` : af.name
-  }, [selected, folders])
+    if (selectedDossierId === '__none__') return 'Sans dossier'
+    if (!selectedFolder) return ''
+    const wf = selectedFolder.parent_id
+      ? folderMap.get(selectedFolder.parent_id)
+      : null
+    return wf ? `${wf.name} / ${selectedFolder.name}` : selectedFolder.name
+  }, [selectedDossierId, selectedFolder, folderMap])
+
+  const canSend = !sending && (replyText !== '' || replyFiles.length > 0)
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Consignes</h1>
         <p className="text-slate-600 mt-1">
-          Dossiers partagés entre tous les profils — ouvrez un dossier pour accéder à ses sujets.
+          Dossiers partagés entre tous les profils — ouvrez un avion pour accéder directement à sa
+          conversation.
         </p>
       </div>
 
@@ -405,26 +309,23 @@ export default function Consignes() {
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Arborescence des dossiers */}
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <button
-              onClick={() => openFolderModal('new', null)}
-              className="flex-1 flex items-center justify-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 text-sm font-semibold"
-              title="Créer un dossier semaine (ex : Semaine 37)"
-            >
-              <FolderPlus className="h-4 w-4" /> Dossier semaine
-            </button>
-          </div>
+          <button
+            onClick={() => openFolderModal('new', null)}
+            className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 text-sm font-semibold"
+            title="Créer un dossier semaine (ex : Semaine 37)"
+          >
+            <FolderPlus className="h-4 w-4" /> Dossier semaine
+          </button>
           <div className="bg-white rounded-xl shadow overflow-hidden">
             {folders === null && !error && <p className="text-sm text-slate-400 p-4">Chargement…</p>}
             {folders && folders.length === 0 && (
               <p className="text-sm text-slate-500 p-4">
-                Aucun dossier. Créez un dossier semaine (ex : « Semaine 37 »), puis ajoutez-y des
-                sous-dossiers par immatriculation d'avion.
+                Aucun dossier. Créez un dossier semaine (ex : « Semaine 37 »), puis ajoutez-y un
+                sous-dossier par immatriculation d'avion.
               </p>
             )}
             {tree.map(({ folder: wf, children }) => {
               const weekOpen = expanded.includes(wf.id)
-              const weekCount = children.reduce((acc, c) => acc + c.topics.length, 0)
               return (
                 <div key={wf.id}>
                   <div
@@ -433,7 +334,7 @@ export default function Consignes() {
                     }`}
                   >
                     <button
-                      onClick={() => toggleFolder(wf.id)}
+                      onClick={() => toggleWeek(wf.id)}
                       className="flex items-center gap-2 flex-1 min-w-0 text-left"
                       title={weekOpen ? `Replier « ${wf.name} »` : `Ouvrir « ${wf.name} »`}
                     >
@@ -451,7 +352,7 @@ export default function Consignes() {
                         {wf.name}
                       </span>
                       <span className="ml-auto text-xs text-slate-400 shrink-0 pr-1">
-                        {children.length} av.{weekCount > 0 ? ` · ${weekCount} suj.` : ''}
+                        {children.length} av.
                       </span>
                     </button>
                     {!wf.id.startsWith('__') && (
@@ -459,7 +360,7 @@ export default function Consignes() {
                         <button
                           onClick={() => openFolderModal('new', wf)}
                           className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                          title={`Ajouter un sous-dossier (avion) dans « ${wf.name} »`}
+                          title={`Ajouter un avion dans « ${wf.name} »`}
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -482,86 +383,60 @@ export default function Consignes() {
                   </div>
 
                   {weekOpen &&
-                    children.map(({ folder: af, topics }) => {
-                      const avOpen = expanded.includes(af.id)
+                    children.map((af) => {
+                      const active = af.id === selectedDossierId
                       return (
-                        <div key={af.id}>
-                          <div className="pl-9 pr-2 flex items-center gap-2 border-b border-slate-50 bg-slate-50/60">
-                            <button
-                              onClick={() => toggleFolder(af.id)}
-                              className="flex items-center gap-2 flex-1 min-w-0 text-left py-2"
-                              title={avOpen ? `Replier « ${af.name} »` : `Ouvrir « ${af.name} »`}
+                        <div
+                          key={af.id}
+                          className={`pl-9 pr-2 flex items-center gap-2 border-b border-slate-50 transition-colors ${
+                            active ? 'bg-sky-50' : 'bg-slate-50/60 hover:bg-slate-100'
+                          }`}
+                        >
+                          <button
+                            onClick={() => setSelectedDossierId(af.id)}
+                            className="flex items-center gap-2 flex-1 min-w-0 text-left py-2.5"
+                            title={`Ouvrir la conversation de « ${af.name} »`}
+                          >
+                            <Plane className="h-4 w-4 text-sky-500 shrink-0" />
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: af.couleur || '#0ea5e9' }}
+                            />
+                            <span
+                              className={`truncate text-sm ${
+                                active ? 'font-semibold text-sky-900' : 'text-slate-700'
+                              }`}
                             >
-                              {avOpen ? (
-                                <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              ) : (
-                                <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              )}
-                              <Plane className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                              <span className={`truncate text-xs font-bold ${avOpen ? 'text-slate-900' : 'text-slate-600'}`}>
-                                {af.name}
-                              </span>
-                              <span className="ml-auto text-xs text-slate-400 shrink-0">
-                                {topics.length}
-                              </span>
-                            </button>
-                            {!af.id.startsWith('__') && (
-                              <>
-                                <button
-                                  onClick={() => openNewTopic(af.id)}
-                                  className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                                  title={`Nouveau sujet dans « ${af.name} »`}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => openFolderModal('rename', af)}
-                                  className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                                  title={`Renommer « ${af.name} »`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => removeFolder(af)}
-                                  className="text-slate-400 hover:text-red-600 p-1 shrink-0"
-                                  title={`Supprimer « ${af.name} »`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                          {avOpen &&
-                            topics.map((c) => {
-                              const active = c.id === selectedId
-                              return (
-                                <button
-                                  key={c.id}
-                                  onClick={() => setSelectedId(c.id)}
-                                  className={`w-full flex items-center gap-2 px-4 pl-12 py-2 text-left text-sm border-b border-slate-50 transition-colors ${
-                                    active
-                                      ? 'bg-sky-50 border-l-4 border-l-sky-600 font-semibold text-sky-900'
-                                      : 'text-slate-700 hover:bg-slate-50 border-l-4 border-l-transparent'
-                                  }`}
-                                  title={`Ouvrir « ${c.titre} »`}
-                                >
-                                  <span
-                                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: c.couleur || '#0ea5e9' }}
-                                  />
-                                  <span className="truncate">{c.titre}</span>
-                                </button>
-                              )
-                            })}
+                              {af.name}
+                            </span>
+                          </button>
+                          {!af.id.startsWith('__') && (
+                            <>
+                              <button
+                                onClick={() => openFolderModal('rename', af)}
+                                className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
+                                title={`Renommer « ${af.name} »`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => removeFolder(af)}
+                                className="text-slate-400 hover:text-red-600 p-1 shrink-0"
+                                title={`Supprimer « ${af.name} »`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       )
                     })}
                 </div>
               )
             })}
-            {totalSujets > 0 && (
+            {totalAvions > 0 && (
               <p className="text-[11px] text-slate-400 px-4 py-2">
-                {totalSujets} sujet{totalSujets > 1 ? 's' : ''} au total
+                {totalAvions} avion{totalAvions > 1 ? 's' : ''} au total
               </p>
             )}
           </div>
@@ -569,49 +444,57 @@ export default function Consignes() {
 
         {/* Conversation */}
         <div className="bg-white rounded-xl shadow flex flex-col min-h-[420px]">
-          {!selected && (
+          {!selectedDossierId && (
             <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-slate-400">
               <MessageSquare className="h-12 w-12 text-slate-300 mb-3" />
               <p className="text-sm">
-                {totalSujets > 0
-                  ? 'Ouvrez un dossier, puis un sujet pour lire sa conversation.'
-                  : 'Créez un dossier semaine, un sous-dossier avion, puis un sujet.'}
+                {totalAvions > 0
+                  ? 'Ouvrez une semaine, puis cliquez sur un avion pour lire sa conversation.'
+                  : 'Créez un dossier semaine, puis un sous-dossier par avion.'}
               </p>
             </div>
           )}
 
-          {selected && (
+          {selectedDossierId && (
             <>
               <div
                 className="px-5 py-3 flex items-center justify-between gap-3"
-                style={{ backgroundColor: selected.couleur || '#0ea5e9' }}
+                style={{ backgroundColor: selectedFolder?.couleur || '#0ea5e9' }}
               >
                 <div className="min-w-0">
-                  <h2 className="font-bold text-white text-lg truncate">{selected.titre}</h2>
+                  <h2 className="font-bold text-white text-lg truncate">
+                    {selectedFolder?.name || 'Sans dossier'}
+                  </h2>
                   <p className="text-white/90 text-xs">
-                    <span className="font-semibold">{selectedPath}</span> ·{' '}
-                    {selected.updated_by
-                      ? `dernière activité par ${selected.updated_by}`
+                    <span className="font-semibold">{selectedPath}</span>
+                    {' · '}
+                    {selectedFolder?.updated_by
+                      ? `dernière activité par ${selectedFolder.updated_by}`
                       : 'dernière activité'}{' '}
-                    · {selected.updated_at ? new Date(selected.updated_at).toLocaleString('fr-FR') : ''}
+                    ·{' '}
+                    {selectedFolder?.updated_at
+                      ? new Date(selectedFolder.updated_at).toLocaleString('fr-FR')
+                      : ''}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => openEdit(selected)}
-                    className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
-                    title={`Modifier le sujet « ${selected.titre} »`}
-                  >
-                    <Pencil className="h-4 w-4" /> Modifier
-                  </button>
-                  <button
-                    onClick={() => removeSubject(selected)}
-                    className="text-white/80 hover:text-white p-2"
-                    title={`Supprimer le sujet « ${selected.titre} » et sa conversation`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                {selectedFolder && !selectedFolder.id.startsWith('__') && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => openFolderModal('rename', selectedFolder)}
+                      className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+                      title={`Renommer « ${selectedFolder.name} »`}
+                    >
+                      <Pencil className="h-4 w-4" /> Renommer
+                    </button>
+                    <button
+                      onClick={() => removeFolder(selectedFolder)}
+                      className="text-white/80 hover:text-white p-2"
+                      title={`Supprimer « ${selectedFolder.name} » et sa conversation`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {messagesError && (
@@ -700,7 +583,7 @@ export default function Consignes() {
                     setReplyHtml(html)
                     setReplyText(text)
                   }}
-                  placeholder={`Répondre à ${selected.titre}…`}
+                  placeholder={`Répondre dans ${selectedFolder?.name || 'ce dossier'}…`}
                   minHeight={70}
                 />
                 {replyPreviews.length > 0 && (
@@ -756,85 +639,6 @@ export default function Consignes() {
         </div>
       </div>
 
-      {/* Modale sujet */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={closeModal}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
-              <h2 className="font-bold">{isNew ? 'Nouveau sujet' : 'Modifier le sujet'}</h2>
-              <button onClick={closeModal} className="text-slate-400 hover:text-white p-1" title="Fermer">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4 overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Titre</label>
-                <input
-                  value={editTitre}
-                  onChange={(e) => setEditTitre(e.target.value)}
-                  placeholder="Ex : Procédure AOG, Regroupement matériel…"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Couleur du bandeau</label>
-                <div className="flex flex-wrap gap-2">
-                  {PALETTE.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setEditCouleur(color)}
-                      className={`h-8 w-8 rounded-full transition-transform ${
-                        editCouleur === color ? 'ring-2 ring-slate-800 ring-offset-2 scale-110' : ''
-                      }`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-              {isNew && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Premier message
-                  </label>
-                  <RichEditor
-                    onChange={(html, text) => {
-                      setEditContenu(text)
-                      setEditContenuHtml(html)
-                    }}
-                    placeholder="Le message de lancement du sujet…"
-                    minHeight={120}
-                  />
-                </div>
-              )}
-              {saveError && <p className="text-sm text-red-600">{saveError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 rounded-md border border-slate-300 text-sm hover:bg-slate-50"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={saveSubject}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
-                >
-                  <Check className="h-4 w-4" /> {saving ? 'Enregistrement…' : isNew ? 'Créer' : 'Enregistrer'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modale dossier */}
       {folderModal && (
         <div
@@ -848,8 +652,8 @@ export default function Consignes() {
             <div className="px-5 py-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
               <h2 className="font-bold">
                 {folderModal.mode === 'new'
-                  ? folderModal.folder
-                    ? 'Nouveau sous-dossier (avion)'
+                  ? folderModal.parentId
+                    ? 'Nouveau dossier avion'
                     : 'Nouveau dossier semaine'
                   : 'Renommer le dossier'}
               </h2>
@@ -864,16 +668,36 @@ export default function Consignes() {
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {folderModal.folder ? 'Immatriculation ou nom du dossier' : 'Nom de la semaine'}
+                  {folderModal.parentId ? "Immatriculation de l'avion" : 'Nom de la semaine'}
                 </label>
                 <input
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
-                  placeholder={folderModal.folder ? 'Ex : F-GKXT' : 'Ex : Semaine 37'}
+                  placeholder={folderModal.parentId ? 'Ex : F-GKXT' : 'Ex : Semaine 37'}
                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
                   autoFocus
                 />
               </div>
+              {folderModal.mode === 'new' && folderModal.parentId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Couleur de la conversation
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {PALETTE.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setFolderCouleur(color)}
+                        className={`h-8 w-8 rounded-full transition-transform ${
+                          folderCouleur === color ? 'ring-2 ring-slate-800 ring-offset-2 scale-110' : ''
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
               {folderError && <p className="text-sm text-red-600">{folderError}</p>}
               <div className="flex justify-end gap-2">
                 <button
