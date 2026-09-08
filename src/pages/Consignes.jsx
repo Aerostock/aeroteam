@@ -152,7 +152,7 @@ export default function Consignes() {
 
   const openFolderModal = (mode, folder) => {
     setFolderModal({ mode, folder: folder || null, parentId: folder ? folder.id : null })
-    setFolderName(folder ? folder.name : '')
+    setFolderName(mode === 'rename' && folder ? folder.name : '')
     setFolderCouleur(folder ? folder.couleur || PALETTE[0] : PALETTE[0])
     setFolderError('')
   }
