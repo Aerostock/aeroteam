@@ -13,7 +13,6 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
   const [skills, setSkills] = useState('')
   const [trfx, setTrfx] = useState('')
   const [status, setStatus] = useState('ACTV')
-  const [zone, setZone] = useState('')
   const [registration, setRegistration] = useState('')
   const [error, setError] = useState('')
 
@@ -34,7 +33,6 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
       skills: skills.trim() || undefined,
       taskBarcode: trfx.trim() || undefined,
       mtxStatus: status,
-      workArea: zone.trim() || undefined,
       registration: registration.trim() || undefined,
     })
     setSeq('')
@@ -42,7 +40,6 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
     setSkills('')
     setTrfx('')
     setStatus('ACTV')
-    setZone('')
     setRegistration('')
     setError('')
     setOpen(false)
@@ -123,15 +120,6 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC' }) {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-        </label>
-        <label className="text-xs font-medium text-slate-600">
-          Zone
-          <input
-            value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            placeholder="Zone de travail"
-            className={`${inputClass} mt-1`}
-          />
         </label>
         <label className="text-xs font-medium text-slate-600">
           Appareil
