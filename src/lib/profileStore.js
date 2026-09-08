@@ -82,30 +82,58 @@ export async function getConsignes() {
   return data
 }
 
-export async function addConsigne(titre, couleur, contenu, contenuHtml, updatedBy, auteurKey, semaine, avion) {
+export async function addConsigne(dossierId, titre, couleur, contenu, contenuHtml, updatedBy, auteurKey) {
   const { data, error } = await supabase.rpc('add_consigne', {
+    p_dossier_id: dossierId,
     p_titre: titre,
     p_couleur: couleur,
     p_contenu: contenu,
     p_contenu_html: contenuHtml,
     p_updated_by: updatedBy,
     p_auteur_key: auteurKey,
-    p_semaine: semaine,
-    p_avion: avion,
   })
   if (error) throw error
   return data
 }
 
-export async function saveConsigne(id, titre, couleur, semaine, avion, updatedBy) {
+export async function saveConsigne(id, titre, couleur, updatedBy) {
   const { data, error } = await supabase.rpc('save_consigne', {
     p_id: id,
     p_titre: titre,
     p_couleur: couleur,
-    p_semaine: semaine,
-    p_avion: avion,
     p_updated_by: updatedBy,
   })
+  if (error) throw error
+  return data
+}
+
+export async function getFolders() {
+  const { data, error } = await supabase.rpc('get_folders')
+  if (error) throw error
+  return data
+}
+
+export async function addFolder(parentId, name, createdBy) {
+  const { data, error } = await supabase.rpc('add_folder', {
+    p_parent_id: parentId,
+    p_name: name,
+    p_created_by: createdBy,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function renameFolder(id, name) {
+  const { data, error } = await supabase.rpc('rename_folder', {
+    p_id: id,
+    p_name: name,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function deleteFolder(id) {
+  const { data, error } = await supabase.rpc('delete_folder', { p_id: id })
   if (error) throw error
   return data
 }
