@@ -11,6 +11,7 @@ import {
   getCategoryLabel,
   hexToRgb,
 } from '../utils/helpers'
+import ManualTaskForm from '../components/ManualTaskForm'
 import {
   Upload,
   FileSpreadsheet,
@@ -309,7 +310,7 @@ export default function Preparation() {
             [
               {
                 content: `${zone} (${zoneTasks.length})`,
-                colSpan: 3,
+                colSpan: 4,
                 styles: {
                   fillColor: [226, 232, 240],
                   textColor: [30, 41, 59],
@@ -321,13 +322,15 @@ export default function Preparation() {
           ],
           body: zoneTasks.map((t) => [
             t.seq !== undefined && t.seq !== '' ? String(t.seq) : '—',
+            t.taskBarcode || '—',
             t.description || '',
             t.registration || '—',
           ]),
           styles: { fontSize: 8, cellPadding: 1.2 },
           columnStyles: {
-            0: { cellWidth: 14 },
-            2: { cellWidth: 26, halign: 'left' },
+            0: { cellWidth: 12 },
+            1: { cellWidth: 30 },
+            3: { cellWidth: 26, halign: 'left' },
           },
         })
         y = doc.lastAutoTable.finalY + 5
@@ -542,6 +545,10 @@ export default function Preparation() {
                             }
                             if (e.key === 'Escape') setRenameId(null)
                           }}
+                          onBlur={() => {
+                            renamePocket(p.id, renameText)
+                            setRenameId(null)
+                          }}
                           className="border border-sky-400 rounded-md px-2 py-1 text-sm font-semibold flex-1"
                         />
                       ) : (
@@ -549,11 +556,16 @@ export default function Preparation() {
                       )}
                       <button
                         onClick={() => {
-                          setRenameId(renameId === p.id ? null : p.id)
-                          setRenameText(p.name)
+                          if (renameId === p.id) {
+                            renamePocket(p.id, renameText)
+                            setRenameId(null)
+                          } else {
+                            setRenameId(p.id)
+                            setRenameText(p.name)
+                          }
                         }}
                         className="text-slate-400 hover:text-sky-600 p-1 rounded"
-                        title="Renommer la pochette"
+                        title={renameId === p.id ? 'Enregistrer le nouveau nom' : 'Renommer la pochette'}
                       >
                         {renameId === p.id ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                       </button>
@@ -675,6 +687,11 @@ export default function Preparation() {
                       </button>
                     </div>
                   </div>
+                  {!isCollapsed && (
+                    <div className="px-4 sm:px-5 py-2">
+                      <ManualTaskForm onAdd={addPrepTasks} defaultBlock={blk} />
+                    </div>
+                  )}
                   {!isCollapsed && (
                     <div className="divide-y divide-slate-100">
                       {zoneNames.map((zone) => (

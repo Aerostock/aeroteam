@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getZoneColor, getCategoryColor, getCategoryLabel } from '../utils/helpers'
+import ManualTaskForm from '../components/ManualTaskForm'
 import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 
 export default function Taches() {
-  const { tasks, teams, assignments, removeTask, removeTasksByBlock } = useApp()
+  const { tasks, teams, assignments, removeTask, removeTasksByBlock, addTasks } = useApp()
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedBlocks, setSelectedBlocks] = useState([])
@@ -71,6 +72,9 @@ export default function Taches() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Tâches par zone</h1>
           <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
+        </div>
+        <div className="w-full sm:w-auto">
+          <ManualTaskForm onAdd={addTasks} />
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative">

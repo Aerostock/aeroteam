@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getCategoryColor, getZoneColor, getCategoryLabel } from '../utils/helpers'
+import ManualTaskForm from '../components/ManualTaskForm'
 import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2, Lock, LockOpen } from 'lucide-react'
 
 export default function Affectation() {
-  const { tasks, teams, assignments, assignTask, unassignTask, updateTeam } = useApp()
+  const { tasks, teams, assignments, assignTask, unassignTask, updateTeam, addTasks } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
@@ -257,6 +258,10 @@ export default function Affectation() {
         <p className="text-slate-600 mt-1">
           Affectez par <strong>bloc complet</strong> (menu en haut de chaque bloc) ou <strong>ligne par ligne</strong>. Glissez-déposez également possible.
         </p>
+      </div>
+
+      <div className="w-full sm:w-auto">
+        <ManualTaskForm onAdd={addTasks} />
       </div>
 
       {/* Répartition automatique assistée */}
