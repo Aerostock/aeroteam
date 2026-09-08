@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import * as profileStore from '../lib/profileStore'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { hashCodeKey } from '../utils/helpers'
+import { hashCodeKey, currentWeekLabel } from '../utils/helpers'
 import RichEditor from '../components/RichEditor'
 import {
   Plus,
@@ -14,6 +14,11 @@ import {
   MessageSquare,
   ImagePlus,
   Send,
+  FolderOpen,
+  Folder,
+  Plane,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 
 const PALETTE = [
@@ -45,6 +50,9 @@ export default function Consignes() {
   const [editCouleur, setEditCouleur] = useState(PALETTE[0])
   const [editContenu, setEditContenu] = useState('')
   const [editContenuHtml, setEditContenuHtml] = useState('')
+  const [editSemaine, setEditSemaine] = useState('')
+  const [editAvion, setEditAvion] = useState('')
+  const [expandedWeeks, setExpandedWeeks] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -120,6 +128,8 @@ export default function Consignes() {
     setEditCouleur(PALETTE[0])
     setEditContenu('')
     setEditContenuHtml('')
+    setEditSemaine(currentWeekLabel())
+    setEditAvion(activeProfile?.aircraft || '')
     setSaveError('')
   }
 
@@ -129,6 +139,9 @@ export default function Consignes() {
     setEditTitre(c.titre)
     setEditCouleur(c.couleur || PALETTE[0])
     setEditContenu('')
+    setEditContenuHtml('')
+    setEditSemaine(c.semaine || '')
+    setEditAvion(c.avion || '')
     setSaveError('')
   }
 
@@ -154,13 +167,28 @@ export default function Consignes() {
           editContenu,
           editContenuHtml,
           activeProfile?.name || '',
-          myKey
+          myKey,
+          editSemaine.trim() || '',
+          editAvion.trim() || ''
         )
         closeModal()
         await loadConsignes(false)
-        if (res?.id) setSelectedId(res.id)
+        if (res?.id) {
+          setSelectedId(res.id)
+          setExpandedWeeks((prev) => {
+            const semaine = editSemaine.trim() || ''
+            return semaine && !prev.includes(semaine) ? [...prev, semaine] : prev
+          })
+        }
       } else if (editingId) {
-        await profileStore.saveConsigne(editingId, titre, editCouleur, activeProfile?.name || '')
+        await profileStore.saveConsigne(
+          editingId,
+          titre,
+          editCouleur,
+          editSemaine.trim() || '',
+          editAvion.trim() || '',
+          activeProfile?.name || ''
+        )
         closeModal()
         await loadConsignes(false)
       }
@@ -244,6 +272,50 @@ export default function Consignes() {
     setSending(false)
   }
 
+  // Arborescence semaine -> avion -> sujets
+  const grouped = useMemo(() => {
+    const weeks = {}
+    ;(consignes || []).forEach((c) => {
+      const semaine = c.semaine || 'Sans semaine'
+      const avion = c.avion || 'Sans avion'
+      if (!weeks[semaine]) weeks[semaine] = {}
+      if (!weeks[semaine][avion]) weeks[semaine][avion] = []
+      weeks[semaine][avion].push(c)
+    })
+    return Object.entries(weeks)
+      .map(([semaine, avions]) => ({
+        semaine,
+        weekNum: parseInt((String(semaine).match(/\d+/) || [0])[0], 10) || 0,
+        avions: Object.entries(avions)
+          .map(([avion, sujets]) => ({ avion, sujets }))
+          .sort((a, b) => a.avion.localeCompare(b.avion)),
+      }))
+      .sort((a, b) => b.weekNum - a.weekNum)
+  }, [consignes])
+
+  const semaineOptions = useMemo(
+    () => [...new Set((consignes || []).map((c) => c.semaine).filter(Boolean))].sort().reverse(),
+    [consignes]
+  )
+  const avionOptions = useMemo(
+    () => [...new Set((consignes || []).map((c) => c.avion).filter(Boolean))].sort(),
+    [consignes]
+  )
+
+  // La semaine la plus récente est ouverte par défaut
+  useEffect(() => {
+    if (consignes && consignes.length > 0 && expandedWeeks.length === 0 && grouped.length > 0) {
+      setExpandedWeeks([grouped[0].semaine])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consignes, grouped.length])
+
+  const toggleWeek = (semaine) => {
+    setExpandedWeeks((prev) =>
+      prev.includes(semaine) ? prev.filter((w) => w !== semaine) : [...prev, semaine]
+    )
+  }
+
   const modalOpen = isNew || editingId !== null
   const selected = consignes?.find((c) => c.id === selectedId) || null
   const canSend = !sending && (replyText !== '' || replyFiles.length > 0)
@@ -275,26 +347,68 @@ export default function Consignes() {
                 Aucun sujet. Créez le premier avec « Nouveau sujet ».
               </p>
             )}
-            {consignes &&
-              consignes.map((c) => {
-                const active = c.id === selectedId
+            {grouped.length > 0 &&
+              grouped.map(({ semaine, avions }) => {
+                const open = expandedWeeks.includes(semaine)
+                const totalSujets = avions.reduce((acc, a) => acc + a.sujets.length, 0)
                 return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedId(c.id)}
-                    className={`w-full flex items-center gap-2.5 px-4 py-3 text-left text-sm border-b border-slate-100 transition-colors ${
-                      active
-                        ? 'bg-sky-50 border-l-4 border-l-sky-600 font-semibold text-sky-900'
-                        : 'text-slate-700 hover:bg-slate-50 border-l-4 border-l-transparent'
-                    }`}
-                    title={`Ouvrir « ${c.titre} »`}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: c.couleur || '#0ea5e9' }}
-                    />
-                    <span className="truncate">{c.titre}</span>
-                  </button>
+                  <div key={semaine}>
+                    <button
+                      onClick={() => toggleWeek(semaine)}
+                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-left text-sm border-b border-slate-100 transition-colors ${
+                        open ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                      title={open ? `Replier la ${semaine}` : `Déplier la ${semaine}`}
+                    >
+                      {open ? (
+                        <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                      )}
+                      {open ? (
+                        <FolderOpen className="h-4 w-4 text-amber-500 shrink-0" />
+                      ) : (
+                        <Folder className="h-4 w-4 text-amber-500 shrink-0" />
+                      )}
+                      <span className="truncate">{semaine}</span>
+                      <span className="ml-auto text-xs text-slate-400 shrink-0">
+                        {totalSujets} sujet{totalSujets > 1 ? 's' : ''}
+                      </span>
+                    </button>
+                    {open &&
+                      avions.map(({ avion, sujets }) => (
+                        <div key={avion}>
+                          <div className="flex items-center gap-2 px-4 pl-9 py-1.5 text-xs font-bold text-slate-500 border-b border-slate-50">
+                            <Plane className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                            <span className="truncate">{avion}</span>
+                            <span className="ml-auto text-slate-400 font-normal shrink-0">
+                              ({sujets.length})
+                            </span>
+                          </div>
+                          {sujets.map((c) => {
+                            const active = c.id === selectedId
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => setSelectedId(c.id)}
+                                className={`w-full flex items-center gap-2 px-4 pl-12 py-2.5 text-left text-sm border-b border-slate-50 transition-colors ${
+                                  active
+                                    ? 'bg-sky-50 border-l-4 border-l-sky-600 font-semibold text-sky-900'
+                                    : 'text-slate-700 hover:bg-slate-50 border-l-4 border-l-transparent'
+                                }`}
+                                title={`Ouvrir « ${c.titre} »`}
+                              >
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: c.couleur || '#0ea5e9' }}
+                                />
+                                <span className="truncate">{c.titre}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                  </div>
                 )
               })}
           </div>
@@ -322,9 +436,13 @@ export default function Consignes() {
                 <div className="min-w-0">
                   <h2 className="font-bold text-white text-lg truncate">{selected.titre}</h2>
                   <p className="text-white/90 text-xs">
+                    <span className="font-semibold">
+                      {selected.semaine || 'Sans semaine'} · {selected.avion || 'Sans avion'}
+                    </span>{' '}
+                    ·{' '}
                     {selected.updated_by
-                      ? `Dernière activité par ${selected.updated_by}`
-                      : 'Dernière activité'}{' '}
+                      ? `dernière activité par ${selected.updated_by}`
+                      : 'dernière activité'}{' '}
                     · {selected.updated_at ? new Date(selected.updated_at).toLocaleString('fr-FR') : ''}
                   </p>
                 </div>
@@ -513,6 +631,40 @@ export default function Consignes() {
                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
                   autoFocus
                 />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Semaine
+                  </label>
+                  <input
+                    value={editSemaine}
+                    onChange={(e) => setEditSemaine(e.target.value)}
+                    placeholder="Ex : Semaine 37"
+                    list="consignes-semaines"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+                  />
+                  <datalist id="consignes-semaines">
+                    {semaineOptions.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Avion</label>
+                  <input
+                    value={editAvion}
+                    onChange={(e) => setEditAvion(e.target.value)}
+                    placeholder="Ex : F-GKXT"
+                    list="consignes-avions"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+                  />
+                  <datalist id="consignes-avions">
+                    {avionOptions.map((a) => (
+                      <option key={a} value={a} />
+                    ))}
+                  </datalist>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Couleur du bandeau</label>

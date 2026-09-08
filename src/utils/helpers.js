@@ -78,6 +78,15 @@ export async function hashCodeKey(text) {
   return (h >>> 0).toString(16)
 }
 
+export function currentWeekLabel(date = new Date()) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7))
+  const week1 = new Date(d.getFullYear(), 0, 4)
+  const week = 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+  return `Semaine ${week}`
+}
+
 // Filtres configurables pour l'import
 export const IMPORT_FILTERS = {
   // Colonne Skills (F) : garder toutes valeurs CABB*

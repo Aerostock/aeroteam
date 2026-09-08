@@ -82,7 +82,7 @@ export async function getConsignes() {
   return data
 }
 
-export async function addConsigne(titre, couleur, contenu, contenuHtml, updatedBy, auteurKey) {
+export async function addConsigne(titre, couleur, contenu, contenuHtml, updatedBy, auteurKey, semaine, avion) {
   const { data, error } = await supabase.rpc('add_consigne', {
     p_titre: titre,
     p_couleur: couleur,
@@ -90,16 +90,20 @@ export async function addConsigne(titre, couleur, contenu, contenuHtml, updatedB
     p_contenu_html: contenuHtml,
     p_updated_by: updatedBy,
     p_auteur_key: auteurKey,
+    p_semaine: semaine,
+    p_avion: avion,
   })
   if (error) throw error
   return data
 }
 
-export async function saveConsigne(id, titre, couleur, updatedBy) {
+export async function saveConsigne(id, titre, couleur, semaine, avion, updatedBy) {
   const { data, error } = await supabase.rpc('save_consigne', {
     p_id: id,
     p_titre: titre,
     p_couleur: couleur,
+    p_semaine: semaine,
+    p_avion: avion,
     p_updated_by: updatedBy,
   })
   if (error) throw error
