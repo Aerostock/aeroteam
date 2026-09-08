@@ -137,6 +137,7 @@ export default function Consignes() {
   // Arborescence : dossiers semaines -> dossiers avions -> sujets
   const tree = useMemo(() => {
     const folderList = folders || []
+    const folderMap = new Map(folderList.map((f) => [f.id, f]))
     const byParent = {}
     folderList.forEach((f) => {
       const key = f.parent_id || 'root'
@@ -161,6 +162,14 @@ export default function Consignes() {
           .sort((a, b) => a.folder.name.localeCompare(b.folder.name)),
       }))
       .sort((a, b) => b.weekNum - a.weekNum)
+    const orphanTopics = (consignes || []).filter((c) => !folderMap.has(c.dossier_id))
+    if (orphanTopics.length > 0) {
+      weeks.unshift({
+        folder: { id: '__sans_dossier__', name: 'Sans dossier' },
+        weekNum: -1,
+        children: [{ folder: { id: '__sans_dossier__', name: 'Sans dossier' }, topics: orphanTopics }],
+      })
+    }
     return weeks
   }, [folders, consignes])
 
@@ -445,27 +454,31 @@ export default function Consignes() {
                         {children.length} av.{weekCount > 0 ? ` · ${weekCount} suj.` : ''}
                       </span>
                     </button>
-                    <button
-                      onClick={() => openFolderModal('new', wf)}
-                      className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                      title={`Ajouter un sous-dossier (avion) dans « ${wf.name} »`}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => openFolderModal('rename', wf)}
-                      className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                      title={`Renommer « ${wf.name} »`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => removeFolder(wf)}
-                      className="text-slate-400 hover:text-red-600 p-1 shrink-0"
-                      title={`Supprimer « ${wf.name} »`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {!wf.id.startsWith('__') && (
+                      <>
+                        <button
+                          onClick={() => openFolderModal('new', wf)}
+                          className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
+                          title={`Ajouter un sous-dossier (avion) dans « ${wf.name} »`}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => openFolderModal('rename', wf)}
+                          className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
+                          title={`Renommer « ${wf.name} »`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeFolder(wf)}
+                          className="text-slate-400 hover:text-red-600 p-1 shrink-0"
+                          title={`Supprimer « ${wf.name} »`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {weekOpen &&
@@ -492,27 +505,31 @@ export default function Consignes() {
                                 {topics.length}
                               </span>
                             </button>
-                            <button
-                              onClick={() => openNewTopic(af.id)}
-                              className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                              title={`Nouveau sujet dans « ${af.name} »`}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => openFolderModal('rename', af)}
-                              className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
-                              title={`Renommer « ${af.name} »`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => removeFolder(af)}
-                              className="text-slate-400 hover:text-red-600 p-1 shrink-0"
-                              title={`Supprimer « ${af.name} »`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {!af.id.startsWith('__') && (
+                              <>
+                                <button
+                                  onClick={() => openNewTopic(af.id)}
+                                  className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
+                                  title={`Nouveau sujet dans « ${af.name} »`}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => openFolderModal('rename', af)}
+                                  className="text-slate-400 hover:text-sky-600 p-1 shrink-0"
+                                  title={`Renommer « ${af.name} »`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => removeFolder(af)}
+                                  className="text-slate-400 hover:text-red-600 p-1 shrink-0"
+                                  title={`Supprimer « ${af.name} »`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                           {avOpen &&
                             topics.map((c) => {

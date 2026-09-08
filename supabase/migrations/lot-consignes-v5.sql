@@ -29,51 +29,63 @@ alter table public.consignes
   references public.consignes_folders(id) on delete cascade;
 
 -- 3) Conversion des sujets existants : semaine/avion -> dossiers
-insert into public.consignes_folders (name, created_by)
-select distinct coalesce(nullif(semaine, ''), 'Sans semaine')
-from public.consignes
-where dossier_id is null;
+--    (uniquement si les colonnes semaine/avion existent, c'est-à-dire
+--    si la migration v4 a été appliquée ; sinon tout reste en place)
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'consignes'
+      and column_name = 'semaine'
+  ) then
 
-update public.consignes as c
-set dossier_id = (
-  select f1.id
-  from public.consignes_folders as f1
-  where f1.parent_id is null
-    and f1.name = coalesce(nullif(c.semaine, ''), 'Sans semaine')
-    and c.dossier_id is null
-  limit 1
-);
+    insert into public.consignes_folders (name, created_by)
+    select distinct coalesce(nullif(semaine, ''), 'Sans semaine')
+    from public.consignes
+    where dossier_id is null;
 
-insert into public.consignes_folders (parent_id, name, created_by)
-select distinct
-  (select f1.id from public.consignes_folders as f1
-   where f1.parent_id is null
-     and f1.name = coalesce(nullif(c.semaine, ''), 'Sans semaine')
-   limit 1),
-  coalesce(nullif(c.avion, ''), 'Sans avion'),
-  ''
-from public.consignes as c
-where c.dossier_id is null;
-
-update public.consignes as c
-set dossier_id = (
-  select f2.id
-  from public.consignes_folders as f2
-  where f2.parent_id is not null
-    and f2.name = coalesce(nullif(c.avion, ''), 'Sans avion')
-    and f2.parent_id = (
-      select f1.id from public.consignes_folders as f1
+    update public.consignes as c
+    set dossier_id = (
+      select f1.id
+      from public.consignes_folders as f1
       where f1.parent_id is null
         and f1.name = coalesce(nullif(c.semaine, ''), 'Sans semaine')
+        and c.dossier_id is null
       limit 1
-    )
-    and c.dossier_id is null
-  limit 1
-);
+    );
 
--- 4) Semaine/avion ne sont plus portés par les sujets
-alter table public.consignes drop column if exists semaine;
-alter table public.consignes drop column if exists avion;
+    insert into public.consignes_folders (parent_id, name, created_by)
+    select distinct
+      (select f1.id from public.consignes_folders as f1
+       where f1.parent_id is null
+         and f1.name = coalesce(nullif(c.semaine, ''), 'Sans semaine')
+       limit 1),
+      coalesce(nullif(c.avion, ''), 'Sans avion'),
+      ''
+    from public.consignes as c
+    where c.dossier_id is null;
+
+    update public.consignes as c
+    set dossier_id = (
+      select f2.id
+      from public.consignes_folders as f2
+      where f2.parent_id is not null
+        and f2.name = coalesce(nullif(c.avion, ''), 'Sans avion')
+        and f2.parent_id = (
+          select f1.id from public.consignes_folders as f1
+          where f1.parent_id is null
+            and f1.name = coalesce(nullif(c.semaine, ''), 'Sans semaine')
+          limit 1
+        )
+        and c.dossier_id is null
+      limit 1
+    );
+
+    alter table public.consignes drop column if exists semaine;
+    alter table public.consignes drop column if exists avion;
+  end if;
+end $$;
 
 -- 5) RPC — liste des dossiers
 create or replace function public.get_folders()
