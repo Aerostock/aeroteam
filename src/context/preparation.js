@@ -25,10 +25,14 @@ export function prepActions({ setPrepTasks, setPockets }) {
     })
   }
 
+  const updatePrepTask = (taskId, updates) => {
+    setPrepTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)))
+  }
+
   const clearPrepTasks = () => {
     setPrepTasks([])
     setPockets([])
   }
 
-  return { addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks }
+  return { addPrepTasks, removePrepTask, removePrepTasksByBlock, updatePrepTask, clearPrepTasks }
 }

@@ -5,7 +5,7 @@ import ManualTaskForm from '../components/ManualTaskForm'
 import { Users, ClipboardList, Undo2, ChevronDown, ChevronRight, Wand2, Trash2, Lock, LockOpen } from 'lucide-react'
 
 export default function Affectation() {
-  const { tasks, teams, assignments, assignTask, unassignTask, updateTeam, addTasks } = useApp()
+  const { tasks, teams, assignments, assignTask, unassignTask, updateTeam, addTasks, removeTasksByBlock } = useApp()
   const [dragTask, setDragTask] = useState(null)
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedBlocks, setExpandedBlocks] = useState([])
@@ -261,7 +261,7 @@ export default function Affectation() {
       </div>
 
       <div className="w-full sm:w-auto">
-        <ManualTaskForm onAdd={addTasks} zoneOptions={zones} />
+        <ManualTaskForm onAdd={addTasks} zoneOptions={zones} existingTasks={tasks} />
       </div>
 
       {/* Répartition automatique assistée */}
@@ -496,6 +496,21 @@ export default function Affectation() {
                         ))}
                       </select>
                     )}
+                    <button
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Supprimer tout le bloc ${getCategoryLabel(block)} (${blockTasks.length} tâches) ?\n\nToutes ces tâches disparaîtront du planning.`
+                          )
+                        ) {
+                          removeTasksByBlock(block)
+                        }
+                      }}
+                      className="bg-white/10 hover:bg-white/25 text-white p-1.5 rounded"
+                      title={`Supprimer tout le bloc ${getCategoryLabel(block)}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
 

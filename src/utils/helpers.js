@@ -89,12 +89,16 @@ export function currentWeekLabel(date = new Date()) {
 
 // Filtres configurables pour l'import
 export const IMPORT_FILTERS = {
-  // Colonne Skills (F) : garder toutes valeurs CABB*
+  // Colonne Skills (F) : garder toute ligne dont AU MOINS UN des skills
+// commence par CABB (ex. "B1B2/CABB1B2" doit être conservé)
   skills: {
     enabled: true,
     match: (value) => {
-      const v = String(value || '').toUpperCase().trim()
-      return v.startsWith('CABB')
+      const parts = String(value || '')
+        .toUpperCase()
+        .split('/')
+        .map((p) => p.trim())
+      return parts.some((p) => p.startsWith('CABB'))
     },
   },
   // Colonne MTX_Status (G) : garder ACTV, PAUSE et IN WORK

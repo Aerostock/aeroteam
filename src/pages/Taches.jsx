@@ -2,14 +2,16 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getZoneColor, getCategoryColor, getCategoryLabel } from '../utils/helpers'
 import ManualTaskForm from '../components/ManualTaskForm'
-import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, Trash2, ChevronDown, ChevronRight, Pencil, Check, X } from 'lucide-react'
 
 export default function Taches() {
-  const { tasks, teams, assignments, removeTask, removeTasksByBlock, addTasks } = useApp()
+  const { tasks, teams, assignments, removeTask, removeTasksByBlock, addTasks, updateTask } = useApp()
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedBlocks, setSelectedBlocks] = useState([])
   const [expandedZones, setExpandedZones] = useState([])
+  const [noteEditId, setNoteEditId] = useState(null)
+  const [noteText, setNoteText] = useState('')
 
   const toggleZone = (zone) => {
     setExpandedZones((prev) =>
@@ -74,7 +76,7 @@ export default function Taches() {
           <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
         </div>
         <div className="w-full sm:w-auto">
-          <ManualTaskForm onAdd={addTasks} zoneOptions={zones} />
+          <ManualTaskForm onAdd={addTasks} zoneOptions={zones} existingTasks={tasks} />
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative">
@@ -207,6 +209,7 @@ export default function Taches() {
                       <th className="px-4 py-2 border-b">TRFX</th>
                       <th className="px-4 py-2 border-b">Statut</th>
                       <th className="px-4 py-2 border-b">Appareil</th>
+                      <th className="px-4 py-2 border-b">Note</th>
                       <th className="px-4 py-2 border-b">Équipe</th>
                       <th className="px-4 py-2 border-b"></th>
                     </tr>
@@ -242,6 +245,59 @@ export default function Taches() {
                             </span>
                           </td>
                           <td className="px-4 py-2">{task.registration || '-'}</td>
+                          <td className="px-4 py-2">
+                            {noteEditId === task.id ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  autoFocus
+                                  value={noteText}
+                                  onChange={(e) => setNoteText(e.target.value)}
+                                  placeholder="Note…"
+                                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs w-28"
+                                />
+                                <button
+                                  onClick={() => {
+                                    updateTask(task.id, { note: noteText.trim() || undefined })
+                                    setNoteEditId(null)
+                                  }}
+                                  className="text-sky-600 hover:text-sky-800"
+                                  title="Enregistrer la note"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setNoteEditId(null)}
+                                  className="text-slate-400 hover:text-slate-600"
+                                  title="Annuler"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                {task.note ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 max-w-[120px] truncate bg-amber-50 text-amber-800 border border-amber-200 rounded px-1.5 py-0.5 text-[11px] font-semibold"
+                                    title={task.note}
+                                  >
+                                    {task.note}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setNoteEditId(task.id)
+                                    setNoteText(task.note || '')
+                                  }}
+                                  className="text-slate-400 hover:text-amber-600"
+                                  title="Ajouter / modifier la note"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-2">
                             {team ? (
                               <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-xs font-semibold">

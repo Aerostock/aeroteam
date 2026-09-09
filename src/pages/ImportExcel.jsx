@@ -76,7 +76,7 @@ export default function ImportExcel() {
           <Filter className="h-5 w-5" /> Filtres d'import actifs
         </h3>
         <div className="text-sm text-sky-700 space-y-1">
-          <p>• <strong>Skills (colonne F)</strong> : toutes les valeurs commençant par CABB</p>
+          <p>• <strong>Skills (colonne F)</strong> : toutes les lignes dont un des skills commence par CABB (ex. B1B2/CABB1B2)</p>
           <p>• <strong>MTX Status (colonne G)</strong> : uniquement ACTV, PAUSE et IN WORK</p>
           <p>• <strong>Task Type (colonne H)</strong> : tous les blocs (JIC, Found Fault, MPC, ADHOC, EO)</p>
         </div>

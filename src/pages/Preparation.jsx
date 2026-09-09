@@ -70,6 +70,7 @@ export default function Preparation() {
     addPrepTasks,
     removePrepTask,
     removePrepTasksByBlock,
+    updatePrepTask,
     clearPrepTasks,
     addPocket,
     renamePocket,
@@ -88,6 +89,8 @@ export default function Preparation() {
   const [renameText, setRenameText] = useState('')
   const [printPocketId, setPrintPocketId] = useState(null)
   const [selectedTasks, setSelectedTasks] = useState([])
+  const [noteEditId, setNoteEditId] = useState(null)
+  const [noteText, setNoteText] = useState('')
 
   const handleFile = useCallback((file) => {
     setError('')
@@ -689,7 +692,7 @@ export default function Preparation() {
                   </div>
                   {!isCollapsed && (
                     <div className="px-4 sm:px-5 py-2">
-                      <ManualTaskForm onAdd={addPrepTasks} defaultBlock={blk} zoneOptions={allZones} />
+                      <ManualTaskForm onAdd={addPrepTasks} defaultBlock={blk} zoneOptions={allZones} existingTasks={prepTasks} />
                     </div>
                   )}
                   {!isCollapsed && (
@@ -755,6 +758,55 @@ export default function Preparation() {
                                           </button>
                                         </span>
                                       ))}
+                                    </span>
+                                  )}
+                                  {noteEditId === task.id ? (
+                                    <span className="shrink-0 flex items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        value={noteText}
+                                        onChange={(e) => setNoteText(e.target.value)}
+                                        placeholder="Note…"
+                                        className="border border-slate-300 rounded px-1.5 py-0.5 text-xs w-28"
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          updatePrepTask(task.id, { note: noteText.trim() || undefined })
+                                          setNoteEditId(null)
+                                        }}
+                                        className="text-sky-600 hover:text-sky-800"
+                                        title="Enregistrer la note"
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => setNoteEditId(null)}
+                                        className="text-slate-400 hover:text-slate-600"
+                                        title="Annuler"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </span>
+                                  ) : (
+                                    <span className="shrink-0 flex items-center gap-1">
+                                      {task.note ? (
+                                        <span
+                                          className="inline-flex items-center max-w-[110px] truncate bg-amber-50 text-amber-800 border border-amber-200 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                          title={task.note}
+                                        >
+                                          {task.note}
+                                        </span>
+                                      ) : null}
+                                      <button
+                                        onClick={() => {
+                                          setNoteEditId(task.id)
+                                          setNoteText(task.note || '')
+                                        }}
+                                        className="text-slate-300 hover:text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Ajouter / modifier la note"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
                                     </span>
                                   )}
                                   <span className="text-xs text-slate-500 shrink-0 w-14 text-right hidden sm:block">

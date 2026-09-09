@@ -26,6 +26,10 @@ export function taskActions({ tasks, setTasks, setAssignments }) {
     })
   }
 
+  const updateTask = (taskId, updates) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)))
+  }
+
   const removeTasksByBlock = (block) => {
     const idsToRemove = tasks.filter((t) => t.taskType === block).map((t) => t.id)
     setTasks((prev) => prev.filter((t) => t.taskType !== block))
@@ -36,5 +40,5 @@ export function taskActions({ tasks, setTasks, setAssignments }) {
     })
   }
 
-  return { addTasks, assignTask, unassignTask, removeTask, removeTasksByBlock }
+  return { addTasks, assignTask, unassignTask, removeTask, removeTasksByBlock, updateTask }
 }

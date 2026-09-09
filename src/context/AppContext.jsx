@@ -435,7 +435,7 @@ export function AppProvider({ children }) {
     [code, isConnected, disconnect]
   )
 
-  const { addTasks, assignTask, unassignTask, removeTask, removeTasksByBlock } = taskActions({
+  const { addTasks, assignTask, unassignTask, removeTask, removeTasksByBlock, updateTask } = taskActions({
     tasks,
     setTasks,
     setAssignments,
@@ -445,7 +445,7 @@ export function AppProvider({ children }) {
     setAssignments,
     setMembers,
   })
-  const { addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks } = prepActions({
+  const { addPrepTasks, removePrepTask, removePrepTasksByBlock, updatePrepTask, clearPrepTasks } = prepActions({
     setPrepTasks,
     setPockets,
   })
@@ -468,8 +468,8 @@ const value = {
     connectProfile, createProfile, disconnect, deleteProfile,
     changeAdminCode, updateOwnProfile,
     addTasks, addTeam, updateTeam, removeTeam, assignTask, unassignTask,
-    removeTask, removeTasksByBlock, addMember, addMembers, removeMember, resetData,
-    addPrepTasks, removePrepTask, removePrepTasksByBlock, clearPrepTasks,
+    removeTask, removeTasksByBlock, updateTask, addMember, addMembers, removeMember, resetData,
+    addPrepTasks, removePrepTask, removePrepTasksByBlock, updatePrepTask, clearPrepTasks,
     addPocket, renamePocket, addTasksToPocket, removeTasksFromPocket, removePocket,
     addNote, updateNote, removeNote,
   }
