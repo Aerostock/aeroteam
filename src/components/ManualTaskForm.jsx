@@ -5,9 +5,8 @@ import { makeId } from '../utils/helpers'
 const BLOCKS = ['JIC', 'CORR', 'MPC', 'ADHOC', 'EO']
 const STATUSES = ['ACTV', 'PAUSE', 'IN WORK']
 
-export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOptions = [], existingTasks = [] }) {
+export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOptions = [] }) {
   const [open, setOpen] = useState(false)
-  const [source, setSource] = useState('new')
   const [seq, setSeq] = useState('')
   const [description, setDescription] = useState('')
   const [block, setBlock] = useState(defaultBlock)
@@ -21,21 +20,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
 
   const inputClass = 'border border-slate-300 rounded-md px-2 py-1.5 text-sm w-full'
 
-  const fillFromExisting = (id) => {
-    const t = existingTasks.find((x) => x.id === id)
-    if (!t) return
-    setSeq(t.seq && String(t.seq) !== '-' ? String(t.seq) : '')
-    setDescription(t.description || '')
-    setBlock(t.taskType || defaultBlock)
-    setSkills(t.skills || '')
-    setTrfx(t.taskBarcode || '')
-    setStatus(t.mtxStatus || 'ACTV')
-    setSubTask(t.workArea || '')
-    setRegistration(t.registration || '')
-  }
-
-  const openForm = () => {
-    setSource('new')
+  const reset = () => {
     setSeq('')
     setDescription('')
     setBlock(defaultBlock)
@@ -82,7 +67,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
   if (!open) {
     return (
       <button
-        onClick={openForm}
+        onClick={reset}
         className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 border border-dashed border-sky-300 hover:bg-sky-50 rounded-md px-3 py-1.5"
         title="Ajouter une ligne manuellement"
       >
@@ -93,61 +78,6 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
 
   return (
     <div className="bg-sky-50/50 border border-sky-200 rounded-lg p-3 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => {
-            setSource('new')
-            setSeq('')
-            setDescription('')
-            setSkills('')
-            setTrfx('')
-            setStatus('ACTV')
-            setSubTask('')
-            setRegistration('')
-          }}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold border ${
-            source === 'new'
-              ? 'bg-sky-600 text-white border-sky-600'
-              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          + Nouvelle tâche
-        </button>
-        <button
-          onClick={() => setSource('existing')}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold border ${
-            source === 'existing'
-              ? 'bg-sky-600 text-white border-sky-600'
-              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          ↳ Reprendre une tâche existante
-        </button>
-      </div>
-
-      {source === 'existing' && (
-        <div>
-          <label className="text-xs font-medium text-slate-600">
-            Tâche existante (ses informations seront reprises, vous pouvez les modifier)
-          </label>
-          <select
-            className={`${inputClass} mt-1`}
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) fillFromExisting(e.target.value)
-            }}
-          >
-            <option value="">— Choisir une tâche —</option>
-            {existingTasks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.seq !== undefined && t.seq !== '' ? `#${t.seq} · ` : ''}
-                {t.description}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-xs font-medium text-slate-600">
           N° de ligne
@@ -165,7 +95,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description de la tâche"
             className={`${inputClass} mt-1`}
-            autoFocus={source === 'new'}
+            autoFocus
           />
         </label>
         <label className="text-xs font-medium text-slate-600">
@@ -210,15 +140,15 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
             ))}
           </select>
         </label>
-        <label className="text-xs font-medium text-slate-600">
+        <label className="text-xs font-medium text-slate-600 sm:col-span-2">
           Sous-tâche
           <input
             value={subTask}
             onChange={(e) => setSubTask(e.target.value)}
-            placeholder={block === 'CORR' ? 'Found Fault' : block}
+            placeholder="Choisissez une existante ou tapez-en une nouvelle"
             list="manual-task-subtasks"
             className={`${inputClass} mt-1`}
-            title="Sous-tâche / zone de la ligne (suggestions des lignes existantes)"
+            title="Sous-tâche / zone de la ligne — une nouvelle valeur crée son propre classement"
           />
           <datalist id="manual-task-subtasks">
             {zoneOptions.map((z) => (
@@ -235,7 +165,7 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
             className={`${inputClass} mt-1`}
           />
         </label>
-        <label className="text-xs font-medium text-slate-600 sm:col-span-2">
+        <label className="text-xs font-medium text-slate-600">
           Note (ex : stock 0)
           <input
             value={note}
