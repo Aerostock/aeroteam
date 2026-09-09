@@ -40,18 +40,20 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
       setError('La tâche (description) est obligatoire.')
       return
     }
-    onAdd({
-      id: makeId('task'),
-      seq: seq.trim() || undefined,
-      description: desc,
-      taskType: block,
-      skills: skills.trim() || undefined,
-      taskBarcode: trfx.trim() || undefined,
-      mtxStatus: status,
-      workArea: subTask.trim() || undefined,
-      registration: registration.trim() || undefined,
-      note: note.trim() || undefined,
-    })
+    onAdd([
+      {
+        id: makeId('task'),
+        seq: seq.trim() || undefined,
+        description: desc,
+        taskType: block,
+        skills: skills.trim() || undefined,
+        taskBarcode: trfx.trim() || undefined,
+        mtxStatus: status,
+        workArea: subTask.trim() || undefined,
+        registration: registration.trim() || undefined,
+        note: note.trim() || undefined,
+      },
+    ])
     setSeq('')
     setDescription('')
     setSkills('')
