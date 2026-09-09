@@ -1,0 +1,176 @@
+// Lecteur du fichier CONSIGNES S37 : effectif par jour/shift + blocs charge par avion.
+// Détection 100 % par contenu (libellés), jamais par positions fixes.
+
+import * as XLSX from 'xlsx'
+
+const DAY_SHEET_NAMES = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI']
+const SHIFT_RE = /^\s*(matin|soir|nuit)\s*$/i
+
+function cell(rows, r, c) {
+  const v = rows[r] ? rows[r][c] : undefined
+  if (v === undefined || v === null) return ''
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  if (typeof v === 'number') return String(v)
+  return String(v).trim()
+}
+
+function norm(s) {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '')
+}
+
+export function findSheetDate(rows) {
+  for (let r = 0; r < Math.min(rows.length, 8); r++) {
+    for (let c = 0; c < 8; c++) {
+      if (norm(cell(rows, r, c)) === 'date') {
+        const v = cell(rows, r, c + 1)
+        if (v) return v
+      }
+    }
+  }
+  return ''
+}
+
+export function parseEffectif(rows) {
+  // Cherche la ligne des libellés de shifts ("Matin" / "Soir" / "Nuit")
+  const shifts = []
+  for (let r = 1; r < Math.min(rows.length, 8); r++) {
+    for (let c = 0; c < 40; c++) {
+      const raw = cell(rows, r, c)
+      if (!SHIFT_RE.test(raw)) continue
+      const shiftName = raw.trim().toLowerCase()
+      const memberCol =
+        r + 1 < rows.length
+          ? Math.min(
+              41,
+              (rows[r + 1] || []).findIndex((v, idx) => idx >= c && norm(v) === 'nom')
+            )
+          : -1
+      if (memberCol === -1 || memberCol >= 41) continue
+      const affectCols = []
+      for (let ac = memberCol + 1; ac < 41; ac++) {
+        const h = norm(cell(rows, r + 1, ac))
+        if (h === 'affectation') affectCols.push(ac)
+        else if (h === 'remarque' || h === 'hangar') break
+      }
+      const members = []
+      for (let dr = r + 2; dr < Math.min(r + 70, rows.length); dr++) {
+        const name = cell(rows, dr, memberCol)
+        if (!name) break
+        const aircrafts = [...new Set(affectCols.map((ac) => cell(rows, dr, ac)).filter((v) => /^F-[\w-]+$/i.test(v)))]
+        if (!aircrafts.length) continue // ABSENT / MANAGER / TSP etc.
+        members.push({ name, aircrafts })
+      }
+      shifts.push({ shift: shiftName, members })
+      // Les autres shifts sont ailleurs dans la ligne : on continue la boucle
+    }
+  }
+  return shifts
+}
+
+export function parseBlocks(rows) {
+  const blocks = []
+  const immatRows = []
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < 40; c++) {
+      if (cell(rows, r, c) === 'Immat') immatRows.push({ r, c })
+    }
+  }
+  for (let i = 0; i < immatRows.length; i++) {
+    const { r, c } = immatRows[i]
+    const immat = cell(rows, r, c + 1)
+    if (!/^F-[\w-]+$/i.test(immat)) continue
+    const endRow = i + 1 < immatRows.length ? immatRows[i + 1].r : rows.length
+
+    let typeVisite = ''
+    let heureEntree = ''
+    if (r - 1 >= 0) {
+      for (let tc = 0; tc < 40; tc++) {
+        if (norm(cell(rows, r - 1, tc)) === 'typedevisite') typeVisite = cell(rows, r - 1, tc + 1)
+        if (norm(cell(rows, r - 1, tc)) === 'heuredentree') heureEntree = cell(rows, r - 1, tc + 1)
+      }
+    }
+
+    const shifts = {}
+    // Délégations : "Consignes X" définies sur plusieurs lignes
+    for (let sr = r + 1; sr < endRow; sr++) {
+      for (let sc = 0; sc < 40; sc++) {
+        const v = cell(rows, sr, sc)
+        if (!/^consignes\s+(matin|soir|nuit)$/i.test(v)) continue
+        const shiftName = v.replace(/^consignes\s+/i, '').trim().toLowerCase()
+        const tasks = []
+        for (let tr = sr + 1; tr < endRow; tr++) {
+          const t = cell(rows, tr, sc)
+          if (!t) break
+          if (/^a\s*fair/i.test(t) || /^à\s*fair/i.test(t)) continue
+          if (/^consignes\s/i.test(t)) break
+          tasks.push(t)
+        }
+        if (tasks.length || !shifts[shiftName]) shifts[shiftName] = tasks
+      }
+    }
+    blocks.push({ immat, typeVisite, heureEntree, shifts })
+  }
+  return blocks
+}
+
+export function parseConsignesSheet(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true })
+  return {
+    date: findSheetDate(rows),
+    effectif: parseEffectif(rows),
+    blocks: parseBlocks(rows),
+  }
+}
+
+export function parseConsignesWorkbook(workbook) {
+  const results = {}
+  workbook.SheetNames.forEach((name) => {
+    if (!DAY_SHEET_NAMES.includes(name.toUpperCase())) return
+    try {
+      results[name] = parseConsignesSheet(workbook.Sheets[name])
+    } catch {
+      results[name] = { date: '', effectif: [], blocks: [], error: 'Feuille illisible' }
+    }
+  })
+  return results
+}
+
+// Résumé agrégé par avion pour la création des profils
+export function summarizeAircrafts(results) {
+  const byAircraft = {}
+  Object.entries(results).forEach(([day, sheet]) => {
+    sheet.effectif.forEach(({ shift, members }) => {
+      members.forEach((m) => {
+        m.aircrafts.forEach((immat) => {
+          if (!byAircraft[immat]) byAircraft[immat] = { days: {} }
+          if (!byAircraft[immat].days[day]) byAircraft[immat].days[day] = {}
+          if (!byAircraft[immat].days[day][shift]) byAircraft[immat].days[day][shift] = []
+          byAircraft[immat].days[day][shift].push(m.name)
+        })
+      })
+    })
+    sheet.blocks.forEach((b) => {
+      if (!byAircraft[b.immat]) byAircraft[b.immat] = { days: {} }
+      if (!byAircraft[b.immat].days[day]) byAircraft[b.immat].days[day] = {}
+      if (!byAircraft[b.immat].days[day].consignes) byAircraft[b.immat].days[day].consignes = {}
+      Object.entries(b.shifts).forEach(([shift, tasks]) => {
+        byAircraft[b.immat].days[day].consignes[shift] = tasks
+      })
+    })
+  })
+  const list = Object.entries(byAircraft).map(([immat, info]) => ({
+    immat,
+    days: info.days,
+    totalTasks: Object.values(info.days).reduce(
+      (acc, d) =>
+        acc +
+        Object.values(d.consignes || {}).reduce((a, tasks) => a + tasks.length, 0),
+      0
+    ),
+  }))
+  return list.sort((a, b) => a.immat.localeCompare(b.immat))
+}

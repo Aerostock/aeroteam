@@ -18,7 +18,7 @@ export default function Layout({ children }) {
   const { activeProfile, disconnect, isAdmin, saveState, resolveConflict } = useApp()
 
   const items = isAdmin
-    ? [...navItems, { to: '/admin', label: 'Administration' }]
+    ? [...navItems, { to: '/admin', label: 'Administration' }, { to: '/import-consignes', label: 'Import consignes' }]
     : navItems
 
   const switchProfile = () => {

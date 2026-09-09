@@ -11,6 +11,7 @@ import Export from './pages/Export'
 import Preparation from './pages/Preparation'
 import BlocNotes from './pages/BlocNotes'
 import Consignes from './pages/Consignes'
+import ImportConsignes from './pages/ImportConsignes'
 import Admin from './pages/Admin'
 
 function AppContent() {
@@ -37,6 +38,7 @@ function AppContent() {
         <Route path="/consignes" element={<Consignes />} />
         <Route path="/export" element={<Export />} />
         {isAdmin && <Route path="/admin" element={<Admin />} />}
+        {isAdmin && <Route path="/import-consignes" element={<ImportConsignes />} />}
       </Routes>
     </Layout>
   )
