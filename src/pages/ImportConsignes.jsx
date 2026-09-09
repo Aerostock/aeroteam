@@ -18,6 +18,8 @@ export default function ImportConsignes() {
   const [error, setError] = useState('')
   const [report, setReport] = useState(null)
   const [aircrafts, setAircrafts] = useState(null)
+  const [selectedDay, setSelectedDay] = useState('')
+  const [selectedShift, setSelectedShift] = useState('matin')
 
   const handleFile = (file) => {
     setError('')
@@ -30,6 +32,9 @@ export default function ImportConsignes() {
         const results = parseConsignesWorkbook(workbook)
         setReport(results)
         setAircrafts(summarizeAircrafts(results))
+        const days = Object.keys(results)
+        setSelectedDay(days[0] || '')
+        setSelectedShift('matin')
       } catch (err) {
         setError(`Erreur lors de la lecture : ${err.message}`)
       }
@@ -37,23 +42,29 @@ export default function ImportConsignes() {
     reader.readAsArrayBuffer(file)
   }
 
+  const days = report ? Object.keys(report) : []
+  const sheet = report && selectedDay ? report[selectedDay] : null
+  const shiftNames = sheet ? sheet.effectif.map((s) => s.shift) : []
+
   const totalMembers = report
     ? Object.values(report).reduce(
-        (acc, sheet) =>
-          acc + sheet.effectif.reduce((a, s) => a + s.members.length, 0),
+        (acc, s) => acc + s.effectif.reduce((a, sh) => a + sh.members.length, 0),
         0
       )
     : 0
   const totalBlocks = report
-    ? Object.values(report).reduce((acc, sheet) => acc + sheet.blocks.length, 0)
+    ? Object.values(report).reduce((acc, s) => acc + s.blocks.length, 0)
     : 0
+
+  const selectClass =
+    'border border-slate-300 rounded-md px-3 py-2 text-sm bg-white'
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Import consignes (rapport)</h1>
         <p className="text-slate-600 mt-1">
-          Phase 1 — analyse du fichier CONSIGNES S37 : la création des profils avion viendra ensuite.
+          Phase 1 — analyse du fichier CONSIGNES S37 : choisissez le jour et le shift à consulter.
         </p>
       </div>
 
@@ -99,7 +110,7 @@ export default function ImportConsignes() {
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="bg-white rounded-xl shadow p-4 text-center">
-              <div className="text-2xl font-bold text-slate-900">{Object.keys(report).length}</div>
+              <div className="text-2xl font-bold text-slate-900">{days.length}</div>
               <div className="text-sm text-slate-500">Feuilles jours lues</div>
             </div>
             <div className="bg-white rounded-xl shadow p-4 text-center">
@@ -112,142 +123,169 @@ export default function ImportConsignes() {
             </div>
           </div>
 
-          {aircrafts && (
-            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Plane className="h-5 w-5 text-sky-500" /> Avions détectés (
-                {aircrafts.length}) — synthèse pour création des profils
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead>
-                    <tr className="text-left bg-slate-50">
-                      <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Jours</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Membres par jour × shift</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Total tâches consignes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aircrafts.map((a) => (
-                      <tr key={a.immat} className="border-b hover:bg-slate-50">
-                        <td className="px-3 py-2 font-mono font-bold text-sky-700">{a.immat}</td>
-                        <td className="px-3 py-2">
-                          {Object.keys(a.days).sort().join(', ')}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col gap-1">
-                            {Object.entries(a.days).map(([day, d]) => (
-                              <div key={day} className="text-xs">
-                                <span className="font-semibold text-slate-600">{day} :</span>{' '}
-                                {Object.entries(d)
-                                  .filter(([k]) => k !== 'consignes')
-                                  .map(([shift, members]) => (
-                                    <span key={shift} className="ml-2">
-                                      <span
-                                        className="px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold"
-                                        style={{ backgroundColor: SHIFT_COLORS[shift] || '#64748b' }}
-                                      >
-                                        {shift}
-                                      </span>{' '}
-                                      {members.length}
-                                    </span>
-                                  ))}
-                              </div>
+          {/* Choix jour + shift */}
+          <div className="bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-4">
+            <label className="text-sm font-medium text-slate-700">
+              Jour
+              <select
+                className={`${selectClass} ml-2`}
+                value={selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value)}
+              >
+                {days.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                    {report[d].date ? ` (${report[d].date})` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              Shift
+              <select
+                className={`${selectClass} ml-2`}
+                value={selectedShift}
+                onChange={(e) => setSelectedShift(e.target.value)}
+              >
+                {['matin', 'soir', 'nuit'].map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {sheet?.date && (
+              <span className="text-sm text-slate-500">
+                {selectedDay} · {sheet.date}
+              </span>
+            )}
+          </div>
+
+          {/* Aperçu jour + shift choisis */}
+          {sheet && (
+            <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+              <div className="bg-white rounded-xl shadow p-4">
+                <h2 className="font-semibold flex items-center gap-2 mb-3">
+                  <Users className="h-5 w-5 text-sky-500" /> Effectif {selectedDay}
+                </h2>
+                <div className="grid gap-3">
+                  {['matin', 'soir', 'nuit'].map((s) => {
+                    const sh = sheet.effectif.find((x) => x.shift === s)
+                    const active = selectedShift === s
+                    return (
+                      <div
+                        key={s}
+                        className={`border rounded-lg overflow-hidden ${
+                          active ? 'ring-2 ring-sky-400' : 'opacity-70'
+                        }`}
+                      >
+                        <button
+                          onClick={() => setSelectedShift(s)}
+                          className={`w-full px-3 py-1.5 text-white text-xs font-bold flex items-center justify-between ${
+                            active ? '' : 'hover:brightness-110'
+                          }`}
+                          style={{ backgroundColor: SHIFT_COLORS[s] || '#64748b' }}
+                        >
+                          {s.charAt(0).toUpperCase() + s.slice(1)} ({sh?.members.length || 0})
+                        </button>
+                        {active && (
+                          <ul className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                            {sh?.members.map((m, i) => (
+                              <li key={i} className="px-3 py-1.5 text-xs flex justify-between gap-2">
+                                <span className="truncate">{m.name}</span>
+                                <span className="font-mono text-sky-700 shrink-0">
+                                  {m.aircrafts.join(', ')}
+                                </span>
+                              </li>
                             ))}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 font-semibold">{a.totalTasks}</td>
+                            {(!sh || sh.members.length === 0) && (
+                              <li className="px-3 py-2 text-xs text-slate-400 italic">
+                                Aucun membre pour ce shift.
+                              </li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+                <h2 className="font-semibold mb-3 flex items-center gap-2">
+                  <Plane className="h-5 w-5 text-sky-500" />
+                  Charge {selectedDay} — {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)} (
+                  {sheet.blocks.length} avions)
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[520px]">
+                    <thead>
+                      <tr className="text-left bg-slate-50">
+                        <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
+                        <th className="px-3 py-2 font-semibold text-slate-700">Type de visite</th>
+                        <th className="px-3 py-2 font-semibold text-slate-700">Heure</th>
+                        <th className="px-3 py-2 font-semibold text-slate-700">
+                          Tâches{' '}
+                          {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}
+                        </th>
+                        <th className="px-3 py-2 font-semibold text-slate-700">Autres shifts</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {sheet.blocks.map((b, i) => {
+                        const tasks = b.shifts[selectedShift] || []
+                        const others = ['matin', 'soir', 'nuit']
+                          .filter((s) => s !== selectedShift)
+                          .filter((s) => (b.shifts[s] || []).length > 0)
+                        return (
+                          <tr key={i} className="border-b hover:bg-slate-50 align-top">
+                            <td className="px-3 py-2 font-mono font-bold text-sky-700 whitespace-nowrap">
+                              {b.immat}
+                            </td>
+                            <td className="px-3 py-2">{b.typeVisite || '—'}</td>
+                            <td className="px-3 py-2">{b.heureEntree || '—'}</td>
+                            <td className="px-3 py-2 max-w-[340px]">
+                              {tasks.length === 0 ? (
+                                <span className="text-xs text-slate-400 italic">aucune tâche</span>
+                              ) : (
+                                <ul className="space-y-0.5">
+                                  {tasks.map((t, j) => (
+                                    <li key={j} className="text-xs text-slate-600 leading-snug">
+                                      · {t}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {others.map((s) => (
+                                  <span
+                                    key={s}
+                                    className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                                    style={{ backgroundColor: SHIFT_COLORS[s] || '#64748b' }}
+                                  >
+                                    {s} : {(b.shifts[s] || []).length}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {sheet.blocks.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-6 text-center text-slate-400 text-sm">
+                            Aucun bloc de charge détecté ce jour.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
-
-          {Object.entries(report).map(([day, sheet]) => (
-            <div key={day} className="bg-white rounded-xl shadow p-4 sm:p-6">
-              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                <Users className="h-5 w-5 text-sky-500" /> {day}
-                {sheet.date && <span className="text-sm font-normal text-slate-400">· {sheet.date}</span>}
-              </h2>
-              {sheet.error && <p className="text-sm text-red-600">{sheet.error}</p>}
-
-              <div className="grid gap-4 lg:grid-cols-3 mt-3">
-                {sheet.effectif.map(({ shift, members }) => (
-                  <div key={shift} className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div
-                      className="px-3 py-1.5 text-white text-xs font-bold"
-                      style={{ backgroundColor: SHIFT_COLORS[shift] || '#64748b' }}
-                    >
-                      {shift} ({members.length})
-                    </div>
-                    <ul className="max-h-44 overflow-y-auto divide-y divide-slate-50">
-                      {members.map((m, i) => (
-                        <li key={i} className="px-3 py-1.5 text-xs flex justify-between gap-2">
-                          <span className="truncate">{m.name}</span>
-                          <span className="font-mono text-sky-700 shrink-0">
-                            {m.aircrafts.join(', ')}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-
-              <h3 className="font-semibold text-slate-700 mt-4 mb-2">
-                Blocs de charge ({sheet.blocks.length})
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead>
-                    <tr className="text-left bg-slate-50">
-                      <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Type de visite</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Heure</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Matin</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Soir</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Nuit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sheet.blocks.map((b, i) => (
-                      <tr key={i} className="border-b hover:bg-slate-50 align-top">
-                        <td className="px-3 py-2 font-mono font-bold text-sky-700 whitespace-nowrap">
-                          {b.immat}
-                        </td>
-                        <td className="px-3 py-2">{b.typeVisite || '—'}</td>
-                        <td className="px-3 py-2">{b.heureEntree || '—'}</td>
-                        {['matin', 'soir', 'nuit'].map((s) => (
-                          <td key={s} className="px-3 py-2">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: SHIFT_COLORS[s] || '#64748b' }}>
-                              {(b.shifts[s] || []).length}
-                            </span>
-                            {(b.shifts[s] || []).slice(0, 4).length > 0 && (
-                              <ul className="mt-1 space-y-0.5">
-                                {(b.shifts[s] || []).slice(0, 4).map((t, j) => (
-                                  <li key={j} className="text-[11px] text-slate-600 truncate" title={t}>
-                                    · {t}
-                                  </li>
-                                ))}
-                                {(b.shifts[s] || []).length > 4 && (
-                                  <li className="text-[10px] text-slate-400">
-                                    + {(b.shifts[s] || []).length - 4} autres
-                                  </li>
-                                )}
-                              </ul>
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
         </>
       )}
     </div>
