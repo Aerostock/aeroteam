@@ -4,7 +4,19 @@ import {
   parseConsignesWorkbook,
   summarizeAircrafts,
 } from '../lib/consignesExcel'
-import { Upload, FileSpreadsheet, Users, Plane, AlertTriangle } from 'lucide-react'
+import { buildProfileData, aircraftProfileLabel } from '../lib/profileBuilder'
+import * as profileStore from '../lib/profileStore'
+import { useApp } from '../context/AppContext'
+import {
+  Upload,
+  FileSpreadsheet,
+  Users,
+  Plane,
+  AlertTriangle,
+  Rocket,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
 
 const SHIFT_COLORS = {
   matin: '#10b981',
@@ -13,6 +25,7 @@ const SHIFT_COLORS = {
 }
 
 export default function ImportConsignes() {
+  const { activeProfile } = useApp()
   const fileInputRef = useRef(null)
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
@@ -20,6 +33,8 @@ export default function ImportConsignes() {
   const [aircrafts, setAircrafts] = useState(null)
   const [selectedDay, setSelectedDay] = useState('')
   const [selectedShift, setSelectedShift] = useState('matin')
+  const [running, setRunning] = useState(false)
+  const [results, setResults] = useState([])
 
   const handleFile = (file) => {
     setError('')
@@ -57,6 +72,72 @@ export default function ImportConsignes() {
 
   const selectClass =
     'border border-slate-300 rounded-md px-3 py-2 text-sm bg-white'
+
+  const runCreation = async () => {
+    if (!aircrafts || !activeProfile?.code) return
+    setRunning(true)
+    setResults([])
+    const out = []
+    const created = []
+    const updated = []
+
+    for (const aircraft of aircrafts) {
+      const immat = aircraft.immat
+      try {
+        const lookup = await profileStore.getProfile(immat)
+        let rev = lookup?.rev ?? 0
+        let createdNow = false
+        if (!lookup) {
+          const res = await profileStore.adminCreateProfile(
+            activeProfile.code,
+            immat,
+            aircraftProfileLabel(immat),
+            immat
+          )
+          if (res?.error === 'code_exists') {
+            // quelqu'un l'a créé entre-temps (rare)
+            const again = await profileStore.getProfile(immat)
+            rev = again?.rev ?? 0
+          } else if (res?.error) {
+            out.push({ immat, ok: false, error: res.error })
+            continue
+          } else {
+            createdNow = true
+          }
+        }
+
+        const current = createdNow ? {} : lookup?.data || {}
+        const merged = buildProfileData(current, aircraft)
+        let saved = await profileStore.saveProfileData(immat, merged, rev, false)
+        if (saved?.error === 'conflict') {
+          const fresh = await profileStore.getProfile(immat)
+          const merged2 = buildProfileData(fresh?.data || {}, aircraft)
+          saved = await profileStore.saveProfileData(immat, merged2, fresh?.rev ?? 0, false)
+          rev = fresh?.rev ?? 0
+        }
+        if (saved?.error) {
+          out.push({ immat, ok: false, error: saved.error })
+          continue
+        }
+        if (createdNow) created.push(immat)
+        else updated.push(immat)
+        out.push({ immat, ok: true, created: createdNow })
+      } catch (err) {
+        out.push({ immat, ok: false, error: err?.message || 'erreur réseau' })
+      }
+      setResults([...out])
+    }
+
+    setResults([
+      ...out,
+      {
+        summary: `Terminé : ${created.length} profil(s) créé(s), ${updated.length} mis à jour, ${
+        out.filter((r) => !r.ok).length
+      } échec(s).`,
+      },
+    ])
+    setRunning(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -172,6 +253,59 @@ export default function ImportConsignes() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Phase 2 — création des profils */}
+          {aircrafts && aircrafts.length > 0 && (
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-sky-500" /> Création des profils avion
+              </h2>
+              <p className="text-xs text-slate-500 mb-4">
+                Crée ou met à jour un profil par immatriculation (code = matricule). Équipes Matin /
+                Soir / Nuit pré-remplies avec l'effectif (union de la semaine, remplacement de
+                l'effectif précédent), consignes insérées dans le Bloc-notes en [C]. Tâches,
+                affectations et autres équipes existantes sont conservées.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={runCreation}
+                  disabled={running}
+                  className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {running ? 'Création en cours…' : `Créer / mettre à jour les ${aircrafts.length} profils`}
+                </button>
+                {running && <span className="text-sm text-slate-500">ne fermez pas l'onglet</span>}
+              </div>
+              {results.length > 0 && (
+                <div className="mt-4 space-y-1">
+                  {results.map((r, i) => (
+                    <div
+                      key={i}
+                      className={`text-xs flex items-center gap-2 ${
+                        r.summary ? 'font-semibold text-slate-700 mt-2' : r.ok ? 'text-green-700' : 'text-red-700'
+                      }`}
+                    >
+                      {r.summary ? (
+                        r.summary
+                      ) : r.ok ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span className="font-mono font-bold">{r.immat}</span>
+                          {r.created ? ' — profil créé et chargé' : ' — profil mis à jour'}
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span className="font-mono font-bold">{r.immat}</span> — {r.error}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

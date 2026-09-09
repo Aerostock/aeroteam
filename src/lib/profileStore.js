@@ -76,6 +76,17 @@ export async function adminUpdateProfile(adminCode, id, name, aircraft) {
   return data
 }
 
+export async function adminCreateProfile(adminCode, code, name, aircraft) {
+  const { data, error } = await supabase.rpc('admin_create_profile', {
+    p_admin_code: adminCode,
+    p_code: code,
+    p_name: name,
+    p_aircraft: aircraft,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error
