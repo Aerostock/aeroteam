@@ -201,18 +201,20 @@ export default function Preparation() {
     assignToPocket(pocketId, ids)
   }
 
+  const pocketTaskIds = (p) => (Array.isArray(p?.taskIds) ? p.taskIds : [])
+
   // { pocketId: nbTaches } pour un ensemble de tâches donné
   const pocketCounts = (scopeIds) => {
     const out = {}
     pockets.forEach((p) => {
-      const n = scopeIds.filter((id) => p.taskIds.includes(id)).length
+      const n = scopeIds.filter((id) => pocketTaskIds(p).includes(id)).length
       if (n) out[p.id] = n
     })
     return out
   }
 
   const removeScopeFromPocket = (pocketId, scopeIds) => {
-    const target = scopeIds.filter((id) => pocketById[pocketId]?.taskIds.includes(id))
+    const target = scopeIds.filter((id) => pocketTaskIds(pocketById[pocketId]).includes(id))
     if (target.length) removeTasksFromPocket(pocketId, target)
   }
 
@@ -225,9 +227,10 @@ export default function Preparation() {
   const pocketStats = useMemo(() => {
     const map = {}
     pockets.forEach((p) => {
+      const ids = pocketTaskIds(p)
       let hours = 0
       let missing = 0
-      p.taskIds.forEach((id) => {
+      ids.forEach((id) => {
         const t = taskById[id]
         if (!t) {
           missing += 1
@@ -236,7 +239,7 @@ export default function Preparation() {
         const h = parseFloat(t.scheduledHours)
         if (!isNaN(h)) hours += h
       })
-      map[p.id] = { count: p.taskIds.length, hours, missing }
+      map[p.id] = { count: ids.length, hours, missing }
     })
     return map
   }, [pockets, taskById])
@@ -244,7 +247,7 @@ export default function Preparation() {
   const openPrint = (pocketId) => {
     const p = pocketById[pocketId]
     if (!p) return
-    setSelectedTasks(p.taskIds)
+    setSelectedTasks(pocketTaskIds(p))
     setPrintPocketId(pocketId)
   }
 
@@ -272,7 +275,7 @@ export default function Preparation() {
       0
     )
     doc.text(
-      `${printTasks.length} / ${printPocket.taskIds.length} ligne(s) sélectionnée(s) · ${hours.toFixed(1)} h · ${new Date().toLocaleDateString('fr-FR')}`,
+      `${printTasks.length} / ${pocketTaskIds(printPocket).length} ligne(s) sélectionnée(s) · ${hours.toFixed(1)} h · ${new Date().toLocaleDateString('fr-FR')}`,
       margin,
       21
     )
@@ -355,7 +358,8 @@ export default function Preparation() {
   const printPocket = printPocketId ? pocketById[printPocketId] : null
   const printTasks = useMemo(() => {
     if (!printPocket) return []
-    return printPocket.taskIds
+    const ids = pocketTaskIds(printPocket)
+    return ids
       .filter((id) => selectedTasks.includes(id) && taskById[id])
       .map((id) => taskById[id])
   }, [printPocket, selectedTasks, taskById])
@@ -381,7 +385,7 @@ export default function Preparation() {
     return map
   }, [printTasks])
 
-  const emptyPockets = pockets.filter((p) => p.taskIds.length === 0)
+  const emptyPockets = pockets.filter((p) => pocketTaskIds(p).length === 0)
 
   return (
     <div className="space-y-6">
@@ -729,7 +733,7 @@ export default function Preparation() {
                           <ul className="px-4 sm:px-5 divide-y divide-slate-50">
                             {zones[zone].map((task) => {
                               const h = parseFloat(task.scheduledHours)
-                              const inPocket = pockets.filter((p) => p.taskIds.includes(task.id))
+                              const inPocket = pockets.filter((p) => pocketTaskIds(p).includes(task.id))
                               return (
                                 <li key={task.id} className="flex items-center gap-2 py-1.5 group">
                                   <span className="text-xs font-mono text-slate-400 w-12 shrink-0">
@@ -856,7 +860,7 @@ export default function Preparation() {
                 <div className="min-w-0">
                   <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{printPocket.name}</h1>
                   <p className="text-sm text-slate-300 mt-0.5">
-                    Pochette virtuelle · {printTasks.length} / {printPocket.taskIds.length} ligne(s)
+                    Pochette virtuelle · {printTasks.length} / {pocketTaskIds(printPocket).length} ligne(s)
                     sélectionnée(s) · {new Date().toLocaleDateString('fr-FR')}
                   </p>
                 </div>
@@ -897,14 +901,14 @@ export default function Preparation() {
                   <>
                     <button
                       onClick={() => {
-                        const allIds = printPocket.taskIds.filter((id) => taskById[id])
+                        const allIds = pocketTaskIds(printPocket).filter((id) => taskById[id])
                         setSelectedTasks((prev) =>
                           allIds.every((id) => prev.includes(id)) ? [] : allIds
                         )
                       }}
                       className="w-full text-left text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md px-3 py-1.5 mb-3 hover:bg-sky-100"
                     >
-                      {printPocket.taskIds.every((id) => selectedTasks.includes(id))
+                      {pocketTaskIds(printPocket).every((id) => selectedTasks.includes(id))
                         ? 'Tout décocher'
                         : 'Tout cocher'}
                     </button>

@@ -86,16 +86,28 @@ export function AppProvider({ children }) {
 
   // Applique un profil servi par Supabase (ou du cache) aux états locaux
   const applyProfileData = useCallback((profile) => {
+    const toArray = (v) => (Array.isArray(v) ? v : [])
+    const toObject = (v) =>
+      v && typeof v === 'object' && !Array.isArray(v) ? v : {}
     const data = profile.data || DEFAULT_EMPTY
-    setTasks(dedupeTasks(data.tasks || []))
-    setTeams(data.teams || [])
-    setAssignments(data.assignments || {})
-    setMembers(data.members || [])
-    setPrepTasks(data.prepTasks || [])
-    setPockets(data.pockets || [])
-    setNotes(data.notes || [])
+    const cleaned = {
+      tasks: toArray(data.tasks),
+      teams: toArray(data.teams),
+      assignments: toObject(data.assignments),
+      members: toArray(data.members),
+      prepTasks: toArray(data.prepTasks),
+      pockets: toArray(data.pockets),
+      notes: toArray(data.notes),
+    }
+    setTasks(dedupeTasks(cleaned.tasks))
+    setTeams(cleaned.teams)
+    setAssignments(cleaned.assignments)
+    setMembers(cleaned.members)
+    setPrepTasks(cleaned.prepTasks)
+    setPockets(cleaned.pockets)
+    setNotes(cleaned.notes)
     revRef.current = profile.rev ?? 0
-    lastSavedJsonRef.current = JSON.stringify(data)
+    lastSavedJsonRef.current = JSON.stringify(cleaned)
     setActiveProfile({
       id: profile.id,
       code: profile.code ?? codeRef.current,
