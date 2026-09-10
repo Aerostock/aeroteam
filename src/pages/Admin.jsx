@@ -16,21 +16,82 @@ import {
 } from 'lucide-react'
 
 export default function Admin() {
-  const { createProfile, activeProfile, changeAdminCode, updateOwnProfile } = useApp()
+  const { createProfile, activeProfile, updateOwnProfile } = useApp()
 
   const [newName, setNewName] = useState('')
   const [newAircraft, setNewAircraft] = useState('')
   const [newCode, setNewCode] = useState('')
+  const [makeAdmin, setMakeAdmin] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const [adminOld, setAdminOld] = useState('')
-  const [adminNew, setAdminNew] = useState('')
-  const [adminNew2, setAdminNew2] = useState('')
-  const [changing, setChanging] = useState(false)
-  const [adminError, setAdminError] = useState('')
-  const [adminSuccess, setAdminSuccess] = useState('')
+  const [admins, setAdmins] = useState(null)
+  const [addAdminName, setAddAdminName] = useState('')
+  const [addAdminCode, setAddAdminCode] = useState('')
+  const [adminMsg, setAdminMsg] = useState('')
+  const [adminBusy, setAdminBusy] = useState(false)
+
+  const loadAdmins = () => {
+    if (!activeProfile?.code) return
+    profileStore
+      .adminListAdmins(activeProfile.code)
+      .then((res) => {
+        if (res?.error) return
+        setAdmins(res.admins || [])
+      })
+      .catch(() => {})
+  }
+
+  const handleAddAdmin = async () => {
+    const name = addAdminName.trim()
+    const code = addAdminCode.trim()
+    if (!name || !code) {
+      setAdminMsg('Le nom et le code sont obligatoires.')
+      return
+    }
+    setAdminBusy(true)
+    setAdminMsg('')
+    try {
+      const exists = await profileStore.getProfile(code)
+      if (!exists) {
+        setAdminMsg('Aucun profil existant avec ce code — créez d’abord le profil normal.')
+        setAdminBusy(false)
+        return
+      }
+      const res = await profileStore.adminAddAdmin(activeProfile?.code, code, name)
+      if (res?.error === 'deja_admin') setAdminMsg('Ce code est déjà administrateur.')
+      else if (res?.error === 'not_admin') setAdminMsg("Votre code administrateur n'est plus valide.")
+      else if (res?.ok) {
+        setAdminMsg(`Administrateur « ${name} » ajouté.`)
+        setAddAdminName('')
+        setAddAdminCode('')
+        loadAdmins()
+      } else setAdminMsg('Échec de l’ajout.')
+    } catch {
+      setAdminMsg('Échec de l’ajout (hors ligne ?).')
+    }
+    setAdminBusy(false)
+  }
+
+  const handleRemoveAdmin = async (name) => {
+    const code = window.prompt(
+      `Retirer l'administrateur « ${name} » ?\nSaisissez le code de cet administrateur pour confirmer.`
+    )
+    if (!code) return
+    setAdminMsg('')
+    try {
+      const res = await profileStore.adminRemoveAdmin(activeProfile?.code, code)
+      if (res?.error === 'dernier_admin') setAdminMsg('Impossible de retirer le dernier administrateur.')
+      else if (res?.error === 'not_found') setAdminMsg('Code incorrect pour cet administrateur.')
+      else if (res?.ok) {
+        setAdminMsg(`Administrateur « ${name} » retiré.`)
+        loadAdmins()
+      }
+    } catch {
+      setAdminMsg('Échec du retrait (hors ligne ?).')
+    }
+  }
 
   const [profiles, setProfiles] = useState(null)
   const [profilesError, setProfilesError] = useState('')
@@ -77,11 +138,11 @@ export default function Admin() {
           editAircraft.trim()
         )
       } catch {
-        res = { ok: false, error: 'Ã‰chec de la mise Ã  jour : erreur rÃ©seau.' }
+        res = { ok: false, error: 'Échec de la mise Ã  jour : erreur réseau.' }
       }
     }
     if (!res.ok) {
-      setEditError(res.error || 'Ã‰chec de la mise Ã  jour.')
+      setEditError(res.error || 'Échec de la mise Ã  jour.')
     } else {
       setProfiles((prev) =>
         prev.map((p) =>
@@ -98,6 +159,7 @@ export default function Admin() {
     let cancelled = false
     // eslint-disable-next-line react/set-state-in-effect -- chargement initial de la liste des profils
     setProfilesError('')
+    loadAdmins()
     profileStore
       .listProfiles(activeProfile.code)
       .then((res) => {
@@ -111,13 +173,13 @@ export default function Admin() {
     return () => {
       cancelled = true
     }
-  }, [activeProfile?.code])
+  }, [activeProfile?.code]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDeleteProfile = async (profile) => {
     if (!activeProfile?.code) return
     if (
       !window.confirm(
-        `Supprimer dÃ©finitivement le profil Â« ${profile.name} Â» ?\n\nToutes ses donnÃ©es (tÃ¢ches, Ã©quipes, affectations, notesâ€¦) seront effacÃ©es. Cette action est IRREVERSIBLE.`
+        `Supprimer définitivement le profil « ${profile.name} » ?\n\nToutes ses données (tâches, équipes, affectations, notes…) seront effacées. Cette action est IRREVERSIBLE.`
       )
     ) {
       return
@@ -126,13 +188,13 @@ export default function Admin() {
     setProfilesError('')
     try {
       const res = await profileStore.adminDeleteProfile(activeProfile.code, profile.id)
-      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe dÃ©jÃ  plus.")
+      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjÃ  plus.")
       else if (res?.error === 'not_admin') setProfilesError("Le code administrateur n'est plus valide.")
       else if (res?.ok) {
         setProfiles((prev) => prev.filter((p) => p.id !== profile.id))
       }
     } catch {
-      setProfilesError('Ã‰chec de la suppression du profil.')
+      setProfilesError('Échec de la suppression du profil.')
     }
     setDeleting(null)
   }
@@ -144,47 +206,39 @@ export default function Admin() {
     const res = await createProfile({ code: newCode, name: newName, aircraft: newAircraft })
     if (!res.ok) setCreateError(res.error)
     else {
-      setSuccess(`Profil Â« ${newName} Â» crÃ©Ã© avec succÃ¨s.`)
+      if (makeAdmin) {
+        try {
+          const addRes = await profileStore.adminAddAdmin(
+            activeProfile?.code,
+            newCode,
+            newName
+          )
+          if (addRes?.ok) loadAdmins()
+        } catch {
+          // le profil est créé même si l'ajout admin échoue
+        }
+      }
+      setSuccess(
+        `Profil « ${newName} » créé avec succès${makeAdmin ? ' et promu administrateur.' : '.'}`
+      )
       setNewName('')
       setNewAircraft('')
       setNewCode('')
+      setMakeAdmin(false)
     }
     setCreating(false)
-  }
-
-  const handleChangeAdmin = async () => {
-    if (!adminOld.trim() || !adminNew.trim()) {
-      setAdminError("Renseignez l'ancien et le nouveau code.")
-      return
-    }
-    if (adminNew !== adminNew2) {
-      setAdminError('La confirmation du nouveau code ne correspond pas.')
-      return
-    }
-    setChanging(true)
-    setAdminError('')
-    setAdminSuccess('')
-    const res = await changeAdminCode(adminOld.trim(), adminNew.trim())
-    if (!res.ok) setAdminError(res.error)
-    else {
-      setAdminSuccess('Code administrateur modifiÃ© avec succÃ¨s.')
-      setAdminOld('')
-      setAdminNew('')
-      setAdminNew2('')
-    }
-    setChanging(false)
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Administration</h1>
-        <p className="text-slate-600 mt-1">CrÃ©ation des profils (rÃ©servÃ© Ã  l'administrateur)</p>
+        <p className="text-slate-600 mt-1">Création des profils (réservé Ã  l'administrateur)</p>
       </div>
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
         <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
-          <UserPlus className="h-5 w-5 text-sky-500" /> CrÃ©er un nouveau profil
+          <UserPlus className="h-5 w-5 text-sky-500" /> Créer un nouveau profil
         </h2>
         <div className="space-y-3">
           <input
@@ -206,8 +260,17 @@ export default function Admin() {
             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
           />
           <p className="text-xs text-slate-500">
-            Ce code est la clÃ© d'accÃ¨s du profil. Remettez-le aux leaders concernÃ©s.
+            Ce code est la clé d'accès du profil. Remettez-le aux leaders concernés.
           </p>
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={makeAdmin}
+              onChange={(e) => setMakeAdmin(e.target.checked)}
+              className="h-4 w-4 accent-sky-600"
+            />
+            Faire de ce profil un <strong>administrateur</strong>
+          </label>
           {createError && <p className="text-sm text-red-600">{createError}</p>}
           {success && <p className="text-sm text-green-600">{success}</p>}
           <button
@@ -215,7 +278,7 @@ export default function Admin() {
             disabled={creating || !newName.trim() || !newCode.trim()}
             className="flex items-center justify-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold w-full"
           >
-            <Plus className="h-4 w-4" /> {creating ? 'CrÃ©ationâ€¦' : 'CrÃ©er le profil'}
+            <Plus className="h-4 w-4" /> {creating ? 'Création…' : 'Créer le profil'}
           </button>
         </div>
       </div>
@@ -226,11 +289,11 @@ export default function Admin() {
           {profiles && <span className="text-sm font-normal text-slate-400">({profiles.length})</span>}
         </h2>
         <p className="text-xs text-slate-500 mb-3">
-          Les codes de connexion ne sont jamais affichÃ©s par sÃ©curitÃ©.
+          Les codes de connexion ne sont jamais affichés par sécurité.
         </p>
         {profilesError && <p className="text-sm text-red-600 mb-3">{profilesError}</p>}
         {profiles === null && !profilesError && (
-          <p className="text-sm text-slate-400">Chargementâ€¦</p>
+          <p className="text-sm text-slate-400">Chargement…</p>
         )}
         {profiles && profiles.length === 0 && (
           <p className="text-sm text-slate-400">Aucun profil pour le moment.</p>
@@ -242,7 +305,7 @@ export default function Admin() {
                 <tr className="text-left bg-slate-50 border-b">
                   <th className="px-3 py-2 font-semibold text-slate-700">Nom</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">CrÃ©Ã© le</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Créé le</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -274,7 +337,7 @@ export default function Admin() {
                               disabled={editSaving}
                               className="flex items-center gap-1 bg-sky-600 text-white px-2.5 py-1 rounded-md text-xs font-semibold hover:bg-sky-700 disabled:opacity-50"
                             >
-                              <Check className="h-3.5 w-3.5" /> {editSaving ? 'Enregistrementâ€¦' : 'OK'}
+                              <Check className="h-3.5 w-3.5" /> {editSaving ? 'Enregistrement…' : 'OK'}
                             </button>
                             <button
                               onClick={cancelEditProfile}
@@ -298,24 +361,24 @@ export default function Admin() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{profile.aircraft || 'â€”'}</td>
+                      <td className="px-3 py-2 text-slate-600">{profile.aircraft || '»”'}</td>
                       <td className="px-3 py-2 text-slate-500">
                         {profile.created_at
                           ? new Date(profile.created_at).toLocaleDateString('fr-FR')
-                          : 'â€”'}
+                          : '»”'}
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <button
                           onClick={() => openProfileView(profile)}
                           className="text-slate-400 hover:text-sky-600 p-1"
-                          title={`Voir les Ã©quipes du profil Â« ${profile.name} Â»`}
+                          title={`Voir les équipes du profil « ${profile.name} »`}
                         >
                           <UserCog className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => startEditProfile(profile)}
                           className="text-slate-400 hover:text-sky-600 p-1"
-                          title={`Modifier le profil Â« ${profile.name} Â»`}
+                          title={`Modifier le profil « ${profile.name} »`}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -326,7 +389,7 @@ export default function Admin() {
                             onClick={() => handleDeleteProfile(profile)}
                             disabled={deleting === profile.id}
                             className="text-slate-400 hover:text-red-600 disabled:opacity-50 ml-1"
-                            title={`Supprimer le profil Â« ${profile.name} Â»`}
+                            title={`Supprimer le profil « ${profile.name} »`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -349,50 +412,68 @@ export default function Admin() {
         />
       )}
 
-      <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
-        <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
-          <KeyRound className="h-5 w-5 text-sky-500" /> Changer le code administrateur
-        </h2>
-        <p className="text-xs text-slate-500 mb-4">
-          Le code administrateur est vÃ©rifiÃ© cÃ´tÃ© serveur (jamais dans le code de l'application).
-          Utilisez un code d'au moins 8 caractÃ¨res, diffÃ©rent des codes des profils.
-        </p>
-        <div className="space-y-3">
-          <input
-            type="password"
-            value={adminOld}
-            onChange={(e) => setAdminOld(e.target.value)}
-            placeholder="Ancien code administrateur"
-            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
-          />
-          <input
-            type="password"
-            value={adminNew}
-            onChange={(e) => setAdminNew(e.target.value)}
-            placeholder="Nouveau code (8 caractÃ¨res minimum)"
-            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
-          />
-          <input
-            type="password"
-            value={adminNew2}
-            onChange={(e) => setAdminNew2(e.target.value)}
-            placeholder="Confirmer le nouveau code"
-            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
-          />
-          {adminError && <p className="text-sm text-red-600">{adminError}</p>}
-          {adminSuccess && <p className="text-sm text-green-600">{adminSuccess}</p>}
-          <button
-            onClick={handleChangeAdmin}
-            disabled={changing}
-            className="w-full bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-700 disabled:opacity-50 text-sm font-semibold"
-          >
-            {changing ? 'Modificationâ€¦' : 'Modifier le code administrateur'}
-          </button>
+      {admins && (admins.length > 0 || addAdminName || addAdminCode || adminMsg) && (
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
+            <KeyRound className="h-5 w-5 text-sky-500" /> Administrateurs
+            <span className="text-sm font-normal text-slate-400">({admins.length})</span>
+          </h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Un administrateur est un profil dont le code est inscrit ici (vérifié côté serveur, le
+            code n'est jamais affiché). Le dernier administrateur ne peut pas être retiré.
+          </p>
+          {admins.length > 0 && (
+            <ul className="divide-y divide-slate-100 border border-slate-200 rounded-lg mb-3">
+              {admins.map((a) => (
+                <li key={a.name} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="text-sm font-medium text-slate-800">{a.name}</span>
+                  <button
+                    onClick={() => handleRemoveAdmin(a.name)}
+                    disabled={adminBusy || admins.length <= 1}
+                    className="text-slate-400 hover:text-red-600 disabled:opacity-40"
+                    title={
+                      admins.length <= 1
+                        ? 'Impossible de retirer le dernier administrateur'
+                        : `Retirer « ${a.name} »`
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <input
+              value={addAdminName}
+              onChange={(e) => setAddAdminName(e.target.value)}
+              placeholder="Nom (ex : Manager)"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+            <input
+              value={addAdminCode}
+              onChange={(e) => setAddAdminCode(e.target.value)}
+              placeholder="Code du profil existant"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
+            />
+            <button
+              onClick={handleAddAdmin}
+              disabled={adminBusy}
+              className="flex items-center justify-center gap-1.5 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+            >
+              <UserPlus className="h-4 w-4" /> Ajouter
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Le code doit correspondre à un profil existant (créez-le d'abord dans « Créer un
+            nouveau profil » si besoin).
+          </p>
+          {adminMsg && <p className="text-sm text-sky-700 mt-2">{adminMsg}</p>}
         </div>
-      </div>
+      )}
 
       <p className="text-xs text-slate-400 flex items-center gap-1.5">
-        <ShieldCheck className="h-4 w-4" /> ConnectÃ© en tant qu'administrateur : {activeProfile?.name}
+        <ShieldCheck className="h-4 w-4" /> Connecté en tant qu'administrateur : {activeProfile?.name}
       </p>
     </div>
   )

@@ -96,6 +96,33 @@ export async function adminGetProfileData(adminCode, id) {
   return data
 }
 
+export async function adminListAdmins(adminCode) {
+  const { data, error } = await supabase.rpc('admin_list_admins', {
+    p_admin_code: adminCode,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminAddAdmin(adminCode, newCode, newName) {
+  const { data, error } = await supabase.rpc('admin_add_admin', {
+    p_admin_code: adminCode,
+    p_new_code: newCode,
+    p_new_name: newName,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminRemoveAdmin(adminCode, targetCode) {
+  const { data, error } = await supabase.rpc('admin_remove_admin', {
+    p_admin_code: adminCode,
+    p_target_code: targetCode,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error
