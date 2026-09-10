@@ -233,7 +233,7 @@ export default function Admin() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Administration</h1>
-        <p className="text-slate-600 mt-1">Création des profils (réservé Ã  l'administrateur)</p>
+<p className="text-slate-600 mt-1">Création des profils (réservé à l'administrateur)</p>
       </div>
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
