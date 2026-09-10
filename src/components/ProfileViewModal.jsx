@@ -131,6 +131,17 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                     const blockOrder = Object.entries(byBlock).sort(
                       (a, b) => b[1].length - a[1].length
                     )
+                    const groupBySubTask = (tasks) => {
+                      const groups = {}
+                      tasks.forEach((t) => {
+                        const z = t.workArea || 'Autre'
+                        if (!groups[z]) groups[z] = []
+                        groups[z].push(t)
+                      })
+                      return Object.entries(groups).sort(
+                        (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
+                      )
+                    }
                     return (
                       <div
                         key={team.id}
@@ -160,10 +171,10 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                             ))}
                           </div>
                           {teamTasks.length > 0 && (
-                            <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                            <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">
                               {blockOrder.map(([blk, tasks]) => (
                                 <div key={blk}>
-                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                  <div className="flex items-center gap-1.5 mb-1">
                                     <span
                                       className="text-[10px] font-bold text-white rounded-full px-2 py-0.5"
                                       style={{ backgroundColor: getCategoryColor(blk) }}
@@ -174,21 +185,33 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                                       {tasks.length} tâche{tasks.length > 1 ? 's' : ''}
                                     </span>
                                   </div>
-                                  <ul className="space-y-0.5">
-                                    {tasks.map((t) => (
-                                      <li
-                                        key={t.id}
-                                        className="text-[11px] text-slate-600 flex gap-1.5"
-                                      >
-                                        <span className="font-mono font-bold shrink-0">
-                                          {t.seq || '—'}
-                                        </span>
-                                        <span className="truncate" title={t.description}>
-                                          {t.description}
-                                        </span>
-                                      </li>
+                                  <div className="space-y-1.5">
+                                    {groupBySubTask(tasks).map(([zone, zoneTasks]) => (
+                                      <div key={zone} className="pl-1 border-l-2 border-slate-200">
+                                        <p className="text-[10px] font-bold text-slate-500 mb-0.5">
+                                          {zone}{' '}
+                                          <span className="font-normal text-slate-400">
+                                            ({zoneTasks.length})
+                                          </span>
+                                        </p>
+                                        <ul className="space-y-0.5">
+                                          {zoneTasks.map((t) => (
+                                            <li
+                                              key={t.id}
+                                              className="text-[11px] text-slate-600 flex gap-1.5"
+                                            >
+                                              <span className="font-mono font-bold shrink-0">
+                                                {t.seq || '—'}
+                                              </span>
+                                              <span className="truncate" title={t.description}>
+                                                {t.description}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
                                     ))}
-                                  </ul>
+                                  </div>
                                 </div>
                               ))}
                             </div>
