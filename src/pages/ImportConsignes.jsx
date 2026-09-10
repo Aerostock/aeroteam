@@ -205,59 +205,6 @@ export default function ImportConsignes() {
             </div>
           </div>
 
-          {/* Synthèse par avion */}
-          {aircrafts && (
-            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Plane className="h-5 w-5 text-sky-500" /> Avions détectés (
-                {aircrafts.length}) — synthèse pour création des profils
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead>
-                    <tr className="text-left bg-slate-50">
-                      <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Jours</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Membres par jour × shift</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Total tâches consignes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aircrafts.map((a) => (
-                      <tr key={a.immat} className="border-b hover:bg-slate-50">
-                        <td className="px-3 py-2 font-mono font-bold text-sky-700">{a.immat}</td>
-                        <td className="px-3 py-2">{Object.keys(a.days).sort().join(', ')}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col gap-1">
-                            {Object.entries(a.days).map(([day, d]) => (
-                              <div key={day} className="text-xs">
-                                <span className="font-semibold text-slate-600">{day} :</span>{' '}
-                                {Object.entries(d)
-                                  .filter(([k]) => k !== 'consignes')
-                                  .map(([shift, members]) => (
-                                    <span key={shift} className="ml-2">
-                                      <span
-                                        className="px-1.5 py-0.5 rounded-full text-white text-[10px] font-bold"
-                                        style={{ backgroundColor: SHIFT_COLORS[shift] || '#64748b' }}
-                                      >
-                                        {shift}
-                                      </span>{' '}
-                                      {members.length}
-                                    </span>
-                                  ))}
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 font-semibold">{a.totalTasks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* Phase 2 — création des profils */}
           {aircrafts && aircrafts.length > 0 && (
             <div className="bg-white rounded-xl shadow p-4 sm:p-6">
