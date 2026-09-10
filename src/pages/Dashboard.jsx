@@ -34,8 +34,16 @@ function groupByZone(blockTasks) {
 }
 
 export default function Dashboard() {
-  const { tasks, teams, assignments } = useApp()
+  const { tasks, teams, assignments, notes } = useApp()
   const [selectedTeamId, setSelectedTeamId] = useState(null)
+
+  const consignes = useMemo(
+    () =>
+      notes
+        .filter((n) => String(n.title || '').startsWith('[C] '))
+        .sort((a, b) => String(a.title).localeCompare(String(b.title))),
+    [notes]
+  )
 
   const ALL_BLOCKS_KEY = 'dashboard-expanded-blocks'
   const [expandedBlocks, setExpandedBlocks] = useState(() => [])
@@ -259,6 +267,26 @@ export default function Dashboard() {
         <StatCard icon={<AlertTriangle className="h-6 w-6" />} label="Non assignées" value={stats.unassigned} color="bg-amber-50 text-amber-600" />
         <StatCard icon={<Clock className="h-6 w-6" />} label="Heures totales" value={`${hoursTotal.toFixed(1)}h`} color="bg-violet-50 text-violet-600" />
       </div>
+
+      {consignes.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-amber-500" /> Consignes de l'avion
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {consignes.map((n) => (
+              <div key={n.id} className="border border-amber-200 bg-amber-50/40 rounded-lg p-3">
+                <p className="text-xs font-bold text-amber-800">
+                  {String(n.title).replace('[C] ', '')}
+                </p>
+                <p className="whitespace-pre-wrap text-xs text-slate-700 mt-1 leading-relaxed">
+                  {n.content || '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="bg-white rounded-xl shadow p-4 sm:p-6">

@@ -15,6 +15,8 @@ import {
   Rocket,
   CheckCircle2,
   XCircle,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react'
 
 const SHIFT_COLORS = {
@@ -33,6 +35,18 @@ export default function ImportConsignes() {
   const [selectedShift, setSelectedShift] = useState('matin')
   const [running, setRunning] = useState(false)
   const [results, setResults] = useState([])
+  const [overrides, setOverrides] = useState({})
+  const [editRow, setEditRow] = useState(null)
+  const [editText, setEditText] = useState('')
+
+  const overrideKey = (immat) => `${selectedDay}::${immat}::${selectedShift}`
+
+  const effectiveTasks = (immat) => {
+    const ov = overrides[overrideKey(immat)]
+    if (Array.isArray(ov)) return ov
+    const block = sheet?.blocks.find((b) => b.immat === immat)
+    return block?.shifts[selectedShift] || []
+  }
 
   const handleFile = (file) => {
     setError('')
@@ -77,18 +91,17 @@ export default function ImportConsignes() {
   }, [sheet, eligible, selectedShift])
 
   const aircraftInfoForScope = (immat) => {
-    const block = sheet.blocks.find((b) => b.immat === immat)
     const shiftEff = sheet.effectif.find((s) => s.shift === selectedShift)
     const members = (shiftEff?.members || [])
       .filter((m) => m.aircrafts.includes(immat))
       .map((m) => m.name)
     return {
       immat,
-      totalTasks: (block?.shifts[selectedShift] || []).length,
+      totalTasks: effectiveTasks(immat).length,
       days: {
         [selectedDay]: {
           [selectedShift]: [...new Set(members)],
-          consignes: { [selectedShift]: block?.shifts[selectedShift] || [] },
+          consignes: { [selectedShift]: effectiveTasks(immat) },
         },
       },
     }
@@ -405,17 +418,24 @@ export default function ImportConsignes() {
                         <th className="px-3 py-2 font-semibold text-slate-700">Heure</th>
                         <th className="px-3 py-2 font-semibold text-slate-700">
                           Tâches{' '}
-                          {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}
+                          {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}{' '}
+                          <span className="font-normal text-slate-400">(crayon = modifier)</span>
                         </th>
                         <th className="px-3 py-2 font-semibold text-slate-700">Autres shifts</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sheet.blocks.map((b, i) => {
-                        const tasks = b.shifts[selectedShift] || []
+                        const tasks = effectiveTasks(b.immat)
+                        const overridden = Array.isArray(overrides[overrideKey(b.immat)])
                         const others = ['matin', 'soir', 'nuit']
                           .filter((s) => s !== selectedShift)
-                          .filter((s) => (b.shifts[s] || []).length > 0)
+                          .filter((s) => {
+                            const ovKey = `${selectedDay}::${b.immat}::${s}`
+                            const ov = overrides[ovKey]
+                            return (Array.isArray(ov) ? ov : b.shifts[s] || []).length > 0
+                          })
+                        const editing = editRow === b.immat
                         return (
                           <tr key={i} className="border-b hover:bg-slate-50 align-top">
                             <td className="px-3 py-2 font-mono font-bold text-sky-700 whitespace-nowrap">
@@ -424,16 +444,86 @@ export default function ImportConsignes() {
                             <td className="px-3 py-2">{b.typeVisite || '—'}</td>
                             <td className="px-3 py-2">{b.heureEntree || '—'}</td>
                             <td className="px-3 py-2 max-w-[340px]">
-                              {tasks.length === 0 ? (
-                                <span className="text-xs text-slate-400 italic">aucune tâche</span>
+                              {editing ? (
+                                <div className="flex flex-col gap-1">
+                                  <textarea
+                                    autoFocus
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                    rows={Math.max(3, Math.min(tasks.length + 1, 12))}
+                                    className="border border-slate-300 rounded-md px-2 py-1 text-xs w-full"
+                                    placeholder="Une tâche par ligne"
+                                  />
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => {
+                                        setOverrides((prev) => ({
+                                          ...prev,
+                                          [overrideKey(b.immat)]: editText
+                                            .split('\n')
+                                            .map((t) => t.trim())
+                                            .filter(Boolean),
+                                        }))
+                                        setEditRow(null)
+                                      }}
+                                      className="text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded px-2 py-1"
+                                    >
+                                      OK
+                                    </button>
+                                    <button
+                                      onClick={() => setEditRow(null)}
+                                      className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1"
+                                    >
+                                      Annuler
+                                    </button>
+                                  </div>
+                                </div>
                               ) : (
-                                <ul className="space-y-0.5">
-                                  {tasks.map((t, j) => (
-                                    <li key={j} className="text-xs text-slate-600 leading-snug">
-                                      · {t}
-                                    </li>
-                                  ))}
-                                </ul>
+                                <div className="flex items-start gap-1">
+                                  <ul className="space-y-0.5 flex-1 min-w-0">
+                                    {tasks.length === 0 ? (
+                                      <li className="text-xs text-slate-400 italic">aucune tâche</li>
+                                    ) : (
+                                      tasks.map((t, j) => (
+                                        <li key={j} className="text-xs text-slate-600 leading-snug">
+                                          · {t}
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                  <div className="flex flex-col gap-1 shrink-0">
+                                    {overridden && (
+                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1 py-0.5">
+                                        modifié
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        setEditRow(b.immat)
+                                        setEditText(tasks.join('\n'))
+                                      }}
+                                      className="text-slate-400 hover:text-sky-600"
+                                      title={`Modifier les consignes de ${b.immat}`}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    {overridden && (
+                                      <button
+                                        onClick={() =>
+                                          setOverrides((prev) => {
+                                            const next = { ...prev }
+                                            delete next[overrideKey(b.immat)]
+                                            return next
+                                          })
+                                        }
+                                        className="text-slate-400 hover:text-red-600"
+                                        title="Revenir au fichier"
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </td>
                             <td className="px-3 py-2">
@@ -444,7 +534,11 @@ export default function ImportConsignes() {
                                     className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
                                     style={{ backgroundColor: SHIFT_COLORS[s] || '#64748b' }}
                                   >
-                                    {s} : {(b.shifts[s] || []).length}
+                                    {s} : {(() => {
+                                      const ovKey = `${selectedDay}::${b.immat}::${s}`
+                                      const ov = overrides[ovKey]
+                                      return (Array.isArray(ov) ? ov : b.shifts[s] || []).length
+                                    })()}
                                   </span>
                                 ))}
                               </div>
