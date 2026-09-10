@@ -12,7 +12,6 @@ import {
   Check,
   X,
   UserCog,
-  ClipboardList,
 } from 'lucide-react'
 
 export default function Admin() {
