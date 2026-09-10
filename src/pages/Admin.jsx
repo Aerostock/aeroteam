@@ -138,11 +138,11 @@ export default function Admin() {
           editAircraft.trim()
         )
       } catch {
-        res = { ok: false, error: 'Échec de la mise Ã  jour : erreur réseau.' }
+res = { ok: false, error: 'Échec de la mise à jour : erreur réseau.' }
       }
     }
     if (!res.ok) {
-      setEditError(res.error || 'Échec de la mise Ã  jour.')
+setEditError(res.error || 'Échec de la mise à jour.')
     } else {
       setProfiles((prev) =>
         prev.map((p) =>
@@ -188,7 +188,7 @@ export default function Admin() {
     setProfilesError('')
     try {
       const res = await profileStore.adminDeleteProfile(activeProfile.code, profile.id)
-      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjÃ  plus.")
+if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjà plus.")
       else if (res?.error === 'not_admin') setProfilesError("Le code administrateur n'est plus valide.")
       else if (res?.ok) {
         setProfiles((prev) => prev.filter((p) => p.id !== profile.id))
