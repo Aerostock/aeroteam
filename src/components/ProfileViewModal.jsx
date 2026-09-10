@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as profileStore from '../lib/profileStore'
-import { X, UserCog, Users } from 'lucide-react'
+import { X, UserCog, Users, ClipboardList } from 'lucide-react'
 
 function StatBox({ label, value }) {
   return (
@@ -77,6 +77,32 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                 <StatBox label="Affectées" value={assignedCount} />
                 <StatBox label="Non affectées" value={(data.tasks || []).length - assignedCount} />
                 <StatBox label="Membres" value={(data.members || []).length} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-amber-500" /> Consignes ({(data.notes || []).filter((n) => String(n.title || '').startsWith('[C] ')).length})
+                </h3>
+                {(data.notes || []).filter((n) => String(n.title || '').startsWith('[C] ')).length === 0 && (
+                  <p className="text-sm text-slate-400 italic">
+                    Aucune consigne importée pour ce profil.
+                  </p>
+                )}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(data.notes || [])
+                    .filter((n) => String(n.title || '').startsWith('[C] '))
+                    .sort((a, b) => String(a.title).localeCompare(String(b.title)))
+                    .map((n) => (
+                      <div key={n.id} className="border border-amber-200 bg-amber-50/40 rounded-lg p-3">
+                        <p className="text-xs font-bold text-amber-800">
+                          {String(n.title).replace('[C] ', '')}
+                        </p>
+                        <p className="whitespace-pre-wrap text-xs text-slate-700 mt-1 leading-relaxed">
+                          {n.content || '—'}
+                        </p>
+                      </div>
+                    ))}
+                </div>
               </div>
 
               <div>
