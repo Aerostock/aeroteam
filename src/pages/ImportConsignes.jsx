@@ -59,6 +59,8 @@ export default function ImportConsignes() {
 
   const days = report ? Object.keys(report) : []
   const sheet = report && selectedDay ? report[selectedDay] : null
+  const eligibleAircrafts = aircrafts ? aircrafts.filter((a) => a.totalTasks > 0) : []
+  const skippedAircrafts = aircrafts ? aircrafts.filter((a) => a.totalTasks === 0) : []
 
   const totalMembers = report
     ? Object.values(report).reduce(
@@ -74,14 +76,14 @@ export default function ImportConsignes() {
     'border border-slate-300 rounded-md px-3 py-2 text-sm bg-white'
 
   const runCreation = async () => {
-    if (!aircrafts || !activeProfile?.code) return
+    if (!eligibleAircrafts.length || !activeProfile?.code) return
     setRunning(true)
     setResults([])
     const out = []
     const created = []
     const updated = []
 
-    for (const aircraft of aircrafts) {
+    for (const aircraft of eligibleAircrafts) {
       const immat = aircraft.immat
       try {
         const lookup = await profileStore.getProfile(immat)
@@ -263,19 +265,27 @@ export default function ImportConsignes() {
                 <Rocket className="h-5 w-5 text-sky-500" /> Création des profils avion
               </h2>
               <p className="text-xs text-slate-500 mb-4">
-                Crée ou met à jour un profil par immatriculation (code = matricule). Équipes Matin /
-                Soir / Nuit pré-remplies avec l'effectif (union de la semaine, remplacement de
-                l'effectif précédent), consignes insérées dans le Bloc-notes en [C]. Tâches,
-                affectations et autres équipes existantes sont conservées.
+                Crée ou met à jour un profil par immatriculation (code = matricule) pour les avions
+                ayant <strong>au moins une consigne remplie</strong>. Équipes Matin / Soir / Nuit
+                pré-remplies avec l'effectif (remplacement), consignes insérées dans le Bloc-notes en
+                [C]. Tâches, affectations et autres équipes existantes sont conservées.
               </p>
+              {skippedAircrafts.length > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                  {skippedAircrafts.length} avion(s) sans consigne ignoré(s) :{' '}
+                  {skippedAircrafts.map((a) => a.immat).join(', ')}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={runCreation}
-                  disabled={running}
+                  disabled={running || eligibleAircrafts.length === 0}
                   className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
                 >
                   <CheckCircle2 className="h-4 w-4" />
-                  {running ? 'Création en cours…' : `Créer / mettre à jour les ${aircrafts.length} profils`}
+                  {running
+                    ? 'Création en cours…'
+                    : `Créer / mettre à jour les ${eligibleAircrafts.length} profils`}
                 </button>
                 {running && <span className="text-sm text-slate-500">ne fermez pas l'onglet</span>}
               </div>
