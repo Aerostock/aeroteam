@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as profileStore from '../lib/profileStore'
+import ProfileViewModal from '../components/ProfileViewModal'
 import {
   ShieldCheck,
   UserPlus,
@@ -36,24 +37,6 @@ export default function Admin() {
   const [deleting, setDeleting] = useState(null)
 
   const [viewProfile, setViewProfile] = useState(null)
-  const [viewData, setViewData] = useState(null)
-  const [viewLoading, setViewLoading] = useState(false)
-  const [viewError, setViewError] = useState('')
-
-  const openProfileView = async (profile) => {
-    setViewProfile(profile)
-    setViewData(null)
-    setViewError('')
-    setViewLoading(true)
-    try {
-      const res = await profileStore.adminGetProfileData(activeProfile?.code, profile.id)
-      if (res?.error) setViewError("Impossible de lire le profil.")
-      else setViewData(res.profile?.data || {})
-    } catch {
-      setViewError("Impossible de lire le profil (hors ligne ?).")
-    }
-    setViewLoading(false)
-  }
 
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -94,11 +77,11 @@ export default function Admin() {
           editAircraft.trim()
         )
       } catch {
-        res = { ok: false, error: 'Échec de la mise à jour : erreur réseau.' }
+        res = { ok: false, error: 'Ã‰chec de la mise Ã  jour : erreur rÃ©seau.' }
       }
     }
     if (!res.ok) {
-      setEditError(res.error || 'Échec de la mise à jour.')
+      setEditError(res.error || 'Ã‰chec de la mise Ã  jour.')
     } else {
       setProfiles((prev) =>
         prev.map((p) =>
@@ -134,7 +117,7 @@ export default function Admin() {
     if (!activeProfile?.code) return
     if (
       !window.confirm(
-        `Supprimer définitivement le profil « ${profile.name} » ?\n\nToutes ses données (tâches, équipes, affectations, notes…) seront effacées. Cette action est IRREVERSIBLE.`
+        `Supprimer dÃ©finitivement le profil Â« ${profile.name} Â» ?\n\nToutes ses donnÃ©es (tÃ¢ches, Ã©quipes, affectations, notesâ€¦) seront effacÃ©es. Cette action est IRREVERSIBLE.`
       )
     ) {
       return
@@ -143,13 +126,13 @@ export default function Admin() {
     setProfilesError('')
     try {
       const res = await profileStore.adminDeleteProfile(activeProfile.code, profile.id)
-      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjà plus.")
+      if (res?.error === 'not_found') setProfilesError("Ce profil n'existe dÃ©jÃ  plus.")
       else if (res?.error === 'not_admin') setProfilesError("Le code administrateur n'est plus valide.")
       else if (res?.ok) {
         setProfiles((prev) => prev.filter((p) => p.id !== profile.id))
       }
     } catch {
-      setProfilesError('Échec de la suppression du profil.')
+      setProfilesError('Ã‰chec de la suppression du profil.')
     }
     setDeleting(null)
   }
@@ -161,7 +144,7 @@ export default function Admin() {
     const res = await createProfile({ code: newCode, name: newName, aircraft: newAircraft })
     if (!res.ok) setCreateError(res.error)
     else {
-      setSuccess(`Profil « ${newName} » créé avec succès.`)
+      setSuccess(`Profil Â« ${newName} Â» crÃ©Ã© avec succÃ¨s.`)
       setNewName('')
       setNewAircraft('')
       setNewCode('')
@@ -184,7 +167,7 @@ export default function Admin() {
     const res = await changeAdminCode(adminOld.trim(), adminNew.trim())
     if (!res.ok) setAdminError(res.error)
     else {
-      setAdminSuccess('Code administrateur modifié avec succès.')
+      setAdminSuccess('Code administrateur modifiÃ© avec succÃ¨s.')
       setAdminOld('')
       setAdminNew('')
       setAdminNew2('')
@@ -196,12 +179,12 @@ export default function Admin() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Administration</h1>
-        <p className="text-slate-600 mt-1">Création des profils (réservé à l'administrateur)</p>
+        <p className="text-slate-600 mt-1">CrÃ©ation des profils (rÃ©servÃ© Ã  l'administrateur)</p>
       </div>
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
         <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
-          <UserPlus className="h-5 w-5 text-sky-500" /> Créer un nouveau profil
+          <UserPlus className="h-5 w-5 text-sky-500" /> CrÃ©er un nouveau profil
         </h2>
         <div className="space-y-3">
           <input
@@ -223,7 +206,7 @@ export default function Admin() {
             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
           />
           <p className="text-xs text-slate-500">
-            Ce code est la clé d'accès du profil. Remettez-le aux leaders concernés.
+            Ce code est la clÃ© d'accÃ¨s du profil. Remettez-le aux leaders concernÃ©s.
           </p>
           {createError && <p className="text-sm text-red-600">{createError}</p>}
           {success && <p className="text-sm text-green-600">{success}</p>}
@@ -232,7 +215,7 @@ export default function Admin() {
             disabled={creating || !newName.trim() || !newCode.trim()}
             className="flex items-center justify-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold w-full"
           >
-            <Plus className="h-4 w-4" /> {creating ? 'Création…' : 'Créer le profil'}
+            <Plus className="h-4 w-4" /> {creating ? 'CrÃ©ationâ€¦' : 'CrÃ©er le profil'}
           </button>
         </div>
       </div>
@@ -243,11 +226,11 @@ export default function Admin() {
           {profiles && <span className="text-sm font-normal text-slate-400">({profiles.length})</span>}
         </h2>
         <p className="text-xs text-slate-500 mb-3">
-          Les codes de connexion ne sont jamais affichés par sécurité.
+          Les codes de connexion ne sont jamais affichÃ©s par sÃ©curitÃ©.
         </p>
         {profilesError && <p className="text-sm text-red-600 mb-3">{profilesError}</p>}
         {profiles === null && !profilesError && (
-          <p className="text-sm text-slate-400">Chargement…</p>
+          <p className="text-sm text-slate-400">Chargementâ€¦</p>
         )}
         {profiles && profiles.length === 0 && (
           <p className="text-sm text-slate-400">Aucun profil pour le moment.</p>
@@ -259,7 +242,7 @@ export default function Admin() {
                 <tr className="text-left bg-slate-50 border-b">
                   <th className="px-3 py-2 font-semibold text-slate-700">Nom</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Créé le</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">CrÃ©Ã© le</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -291,7 +274,7 @@ export default function Admin() {
                               disabled={editSaving}
                               className="flex items-center gap-1 bg-sky-600 text-white px-2.5 py-1 rounded-md text-xs font-semibold hover:bg-sky-700 disabled:opacity-50"
                             >
-                              <Check className="h-3.5 w-3.5" /> {editSaving ? 'Enregistrement…' : 'OK'}
+                              <Check className="h-3.5 w-3.5" /> {editSaving ? 'Enregistrementâ€¦' : 'OK'}
                             </button>
                             <button
                               onClick={cancelEditProfile}
@@ -315,24 +298,24 @@ export default function Admin() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{profile.aircraft || '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">{profile.aircraft || 'â€”'}</td>
                       <td className="px-3 py-2 text-slate-500">
                         {profile.created_at
                           ? new Date(profile.created_at).toLocaleDateString('fr-FR')
-                          : '—'}
+                          : 'â€”'}
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <button
                           onClick={() => openProfileView(profile)}
                           className="text-slate-400 hover:text-sky-600 p-1"
-                          title={`Voir les équipes du profil « ${profile.name} »`}
+                          title={`Voir les Ã©quipes du profil Â« ${profile.name} Â»`}
                         >
                           <UserCog className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => startEditProfile(profile)}
                           className="text-slate-400 hover:text-sky-600 p-1"
-                          title={`Modifier le profil « ${profile.name} »`}
+                          title={`Modifier le profil Â« ${profile.name} Â»`}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -343,7 +326,7 @@ export default function Admin() {
                             onClick={() => handleDeleteProfile(profile)}
                             disabled={deleting === profile.id}
                             className="text-slate-400 hover:text-red-600 disabled:opacity-50 ml-1"
-                            title={`Supprimer le profil « ${profile.name} »`}
+                            title={`Supprimer le profil Â« ${profile.name} Â»`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -359,125 +342,11 @@ export default function Admin() {
       </div>
 
       {viewProfile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setViewProfile(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
-              <h2 className="font-bold flex items-center gap-2">
-                <UserCog className="h-5 w-5 text-sky-400" />
-                {viewProfile.name}
-                <span className="text-sm font-normal text-slate-300">
-                  · {viewProfile.aircraft || '—'}
-                </span>
-              </h2>
-              <button
-                onClick={() => setViewProfile(null)}
-                className="text-slate-400 hover:text-white p-1"
-                title="Fermer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4 overflow-y-auto">
-              {viewLoading && <p className="text-sm text-slate-400">Chargement…</p>}
-              {viewError && <p className="text-sm text-red-600">{viewError}</p>}
-
-              {viewData && (
-                <>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <StatBox label="Tâches" value={(viewData.tasks || []).length} />
-                    <StatBox
-                      label="Affectées"
-                      value={Object.keys(viewData.assignments || {}).filter(
-                        (id) => viewData.assignments[id]
-                      ).length}
-                    />
-                    <StatBox
-                      label="Non affectées"
-                      value={
-                        (viewData.tasks || []).length -
-                        Object.keys(viewData.assignments || {}).filter(
-                          (id) => viewData.assignments[id]
-                        ).length
-                      }
-                    />
-                    <StatBox label="Membres" value={(viewData.members || []).length} />
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-sky-500" /> Équipes du profil (
-                      {(viewData.teams || []).length})
-                    </h3>
-                    {(viewData.teams || []).length === 0 && (
-                      <p className="text-sm text-slate-400 italic">
-                        Aucune équipe créée — le leader monte ses équipes dans la page « Équipes »
-                        de son profil.
-                      </p>
-                    )}
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {(viewData.teams || []).map((team) => {
-                        const teamTasks = (viewData.tasks || []).filter(
-                          (t) => viewData.assignments?.[t.id] === team.id
-                        )
-                        return (
-                          <div
-                            key={team.id}
-                            className="border border-slate-200 rounded-lg overflow-hidden"
-                          >
-                            <div
-                              className="px-3 py-2 flex items-center justify-between gap-2 text-white"
-                              style={{ backgroundColor: team.color || '#64748b' }}
-                            >
-                              <span className="font-bold text-sm truncate">{team.name}</span>
-                              <span className="text-xs opacity-90 shrink-0">
-                                {teamTasks.length} tâche{teamTasks.length > 1 ? 's' : ''}
-                              </span>
-                            </div>
-                            <div className="p-3">
-                              <div className="flex flex-wrap gap-1">
-                                {team.members.length === 0 && (
-                                  <span className="text-xs text-slate-400 italic">—</span>
-                                )}
-                                {team.members.map((m, i) => (
-                                  <span
-                                    key={i}
-                                    className="bg-slate-100 text-slate-700 rounded-full px-2 py-0.5 text-[11px]"
-                                  >
-                                    {m}
-                                  </span>
-                                ))}
-                              </div>
-                              {teamTasks.length > 0 && (
-                                <ul className="mt-2 space-y-0.5 max-h-36 overflow-y-auto">
-                                  {teamTasks.map((t) => (
-                                    <li key={t.id} className="text-[11px] text-slate-600 flex gap-1.5">
-                                      <span className="font-mono font-bold shrink-0">
-                                        {t.seq || '—'}
-                                      </span>
-                                      <span className="truncate" title={t.description}>
-                                        {t.description}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProfileViewModal
+          profile={viewProfile}
+          adminCode={activeProfile?.code}
+          onClose={() => setViewProfile(null)}
+        />
       )}
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
@@ -485,8 +354,8 @@ export default function Admin() {
           <KeyRound className="h-5 w-5 text-sky-500" /> Changer le code administrateur
         </h2>
         <p className="text-xs text-slate-500 mb-4">
-          Le code administrateur est vérifié côté serveur (jamais dans le code de l'application).
-          Utilisez un code d'au moins 8 caractères, différent des codes des profils.
+          Le code administrateur est vÃ©rifiÃ© cÃ´tÃ© serveur (jamais dans le code de l'application).
+          Utilisez un code d'au moins 8 caractÃ¨res, diffÃ©rent des codes des profils.
         </p>
         <div className="space-y-3">
           <input
@@ -500,7 +369,7 @@ export default function Admin() {
             type="password"
             value={adminNew}
             onChange={(e) => setAdminNew(e.target.value)}
-            placeholder="Nouveau code (8 caractères minimum)"
+            placeholder="Nouveau code (8 caractÃ¨res minimum)"
             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
           />
           <input
@@ -517,23 +386,14 @@ export default function Admin() {
             disabled={changing}
             className="w-full bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-700 disabled:opacity-50 text-sm font-semibold"
           >
-            {changing ? 'Modification…' : 'Modifier le code administrateur'}
+            {changing ? 'Modificationâ€¦' : 'Modifier le code administrateur'}
           </button>
         </div>
       </div>
 
       <p className="text-xs text-slate-400 flex items-center gap-1.5">
-        <ShieldCheck className="h-4 w-4" /> Connecté en tant qu'administrateur : {activeProfile?.name}
+        <ShieldCheck className="h-4 w-4" /> ConnectÃ© en tant qu'administrateur : {activeProfile?.name}
       </p>
-    </div>
-  )
-}
-
-function StatBox({ label, value }) {
-  return (
-    <div className="bg-slate-50 rounded-lg p-3 text-center">
-      <div className="text-xl font-bold text-slate-900">{value}</div>
-      <div className="text-[11px] text-slate-500">{label}</div>
     </div>
   )
 }

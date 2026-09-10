@@ -6,6 +6,7 @@ import {
 import { buildProfileData, aircraftProfileLabel } from '../lib/profileBuilder'
 import * as profileStore from '../lib/profileStore'
 import { useApp } from '../context/AppContext'
+import ProfileViewModal from '../components/ProfileViewModal'
 import {
   Upload,
   FileSpreadsheet,
@@ -41,9 +42,26 @@ export default function ImportConsignes() {
   const [editRow, setEditRow] = useState(null)
   const [editText, setEditText] = useState('')
   const [sessionInfo, setSessionInfo] = useState('')
+  const [createdProfiles, setCreatedProfiles] = useState(null)
+  const [viewProfile, setViewProfile] = useState(null)
+
+  // Profils avion créés (persistés en base) : cartes permanentes
+  const loadCreatedProfiles = async () => {
+    if (!activeProfile?.code) return
+    try {
+      const res = await profileStore.listProfiles(activeProfile.code)
+      const aircraft = (res?.profiles || []).filter(
+        (p) => String(p.name || '').startsWith('Équipe ' ) && /^F-[\w-]+$/i.test(p.aircraft || '')
+      )
+      setCreatedProfiles(aircraft.sort((a, b) => (a.aircraft || '').localeCompare(b.aircraft || '')))
+    } catch {
+      setCreatedProfiles([])
+    }
+  }
 
   // Restauration de la dernière session d'import
   useEffect(() => {
+    loadCreatedProfiles()
     try {
       const raw = localStorage.getItem(STATE_KEY)
       if (!raw) return
@@ -244,6 +262,7 @@ export default function ImportConsignes() {
       },
     ])
     setRunning(false)
+    await loadCreatedProfiles()
   }
 
   return (
@@ -321,6 +340,56 @@ export default function ImportConsignes() {
               <div className="text-sm text-slate-500">Blocs de charge (avions)</div>
             </div>
           </div>
+
+          {/* Profils avion créés — cartes permanentes */}
+          {(createdProfiles?.length > 0 || createdProfiles === null) && (
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                <Plane className="h-5 w-5 text-sky-500" /> Profils avion créés
+                {createdProfiles && (
+                  <span className="text-sm font-normal text-slate-400">
+                    ({createdProfiles.length})
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-slate-500 mb-3">
+                Cliquez sur une carte pour voir les équipes créées par le leader et la répartition
+                des tâches.
+              </p>
+              {createdProfiles === null ? (
+                <p className="text-sm text-slate-400">Chargement…</p>
+              ) : createdProfiles.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">
+                  Aucun profil avion créé pour le moment (lancez la création ci-dessous).
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {createdProfiles.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setViewProfile(p)}
+                      className="bg-white border border-slate-200 hover:border-sky-400 hover:shadow-md rounded-xl p-4 text-left transition-all"
+                      title={`Voir le récap de ${p.name}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Plane className="h-5 w-5 text-sky-500 shrink-0" />
+                        <span className="font-mono font-bold text-sky-700 text-lg truncate">
+                          {p.aircraft}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate mt-1">{p.name}</p>
+                      <p className="text-[11px] text-slate-400">
+                        {p.created_at
+                          ? `créé le ${new Date(p.created_at).toLocaleDateString('fr-FR')}`
+                          : ''}
+                        {' '}· cliquer pour le récap
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Phase 2 — création des profils */}
           {report && (
@@ -632,6 +701,14 @@ export default function ImportConsignes() {
             </div>
           )}
         </>
+      )}
+
+      {viewProfile && (
+        <ProfileViewModal
+          profile={viewProfile}
+          adminCode={activeProfile?.code}
+          onClose={() => setViewProfile(null)}
+        />
       )}
     </div>
   )
