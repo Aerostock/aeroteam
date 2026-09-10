@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import {
   parseConsignesWorkbook,
@@ -25,6 +25,8 @@ const SHIFT_COLORS = {
   nuit: '#3b82f6',
 }
 
+const STATE_KEY = 'import-consignes-session-v1'
+
 export default function ImportConsignes() {
   const { activeProfile } = useApp()
   const fileInputRef = useRef(null)
@@ -38,6 +40,64 @@ export default function ImportConsignes() {
   const [overrides, setOverrides] = useState({})
   const [editRow, setEditRow] = useState(null)
   const [editText, setEditText] = useState('')
+  const [sessionInfo, setSessionInfo] = useState('')
+
+  // Restauration de la dernière session d'import
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STATE_KEY)
+      if (!raw) return
+      const st = JSON.parse(raw)
+      if (!st?.report) return
+      setReport(st.report)
+      setFileName(st.fileName || '')
+      setSelectedDay(st.selectedDay || Object.keys(st.report)[0] || '')
+      setSelectedShift(st.selectedShift || 'matin')
+      setOverrides(st.overrides || {})
+      setResults(st.results || [])
+      if (st.savedAt) {
+        setSessionInfo(
+          `Session du ${new Date(st.savedAt).toLocaleString('fr-FR')} restaurée — fichier analysé conservé.`
+        )
+      }
+    } catch {
+      // stockage illisible : on repart de zéro
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persistance : uniquement quand un fichier a été analysé
+  useEffect(() => {
+    if (!report) return
+    try {
+      localStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({
+          fileName,
+          savedAt: new Date().toISOString(),
+          report,
+          selectedDay,
+          selectedShift,
+          overrides,
+          results,
+        })
+      )
+    } catch {
+      // stockage indisponible : non bloquant
+    }
+  }, [report, fileName, selectedDay, selectedShift, overrides, results])
+
+  const clearSession = () => {
+    localStorage.removeItem(STATE_KEY)
+    setReport(null)
+    setFileName('')
+    setError('')
+    setOverrides({})
+    setResults([])
+    setSelectedDay('')
+    setSelectedShift('matin')
+    setSessionInfo('')
+  }
 
   const overrideKey = (immat) => `${selectedDay}::${immat}::${selectedShift}`
 
@@ -194,6 +254,18 @@ export default function ImportConsignes() {
           Phase 1 — analyse du fichier CONSIGNES S37 : choisissez le jour et le shift à consulter.
         </p>
       </div>
+
+      {sessionInfo && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-sky-50 border border-sky-200 text-sky-800 px-4 py-3 rounded-lg text-sm">
+          <span>💾 {sessionInfo}</span>
+          <button
+            onClick={clearSession}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 rounded-md px-2 py-1"
+          >
+            Effacer la session
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
