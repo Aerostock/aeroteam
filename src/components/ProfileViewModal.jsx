@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as profileStore from '../lib/profileStore'
+import { getCategoryColor, getCategoryLabel } from '../utils/helpers'
 import { X, UserCog, Users, ClipboardList } from 'lucide-react'
 
 function StatBox({ label, value }) {
@@ -121,6 +122,15 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                     const teamTasks = (data.tasks || []).filter(
                       (t) => data.assignments?.[t.id] === team.id
                     )
+                    const byBlock = {}
+                    teamTasks.forEach((t) => {
+                      const b = t.taskType || 'AUTRE'
+                      if (!byBlock[b]) byBlock[b] = []
+                      byBlock[b].push(t)
+                    })
+                    const blockOrder = Object.entries(byBlock).sort(
+                      (a, b) => b[1].length - a[1].length
+                    )
                     return (
                       <div
                         key={team.id}
@@ -150,18 +160,38 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                             ))}
                           </div>
                           {teamTasks.length > 0 && (
-                            <ul className="mt-2 space-y-0.5 max-h-36 overflow-y-auto">
-                              {teamTasks.map((t) => (
-                                <li key={t.id} className="text-[11px] text-slate-600 flex gap-1.5">
-                                  <span className="font-mono font-bold shrink-0">
-                                    {t.seq || '—'}
-                                  </span>
-                                  <span className="truncate" title={t.description}>
-                                    {t.description}
-                                  </span>
-                                </li>
+                            <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                              {blockOrder.map(([blk, tasks]) => (
+                                <div key={blk}>
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span
+                                      className="text-[10px] font-bold text-white rounded-full px-2 py-0.5"
+                                      style={{ backgroundColor: getCategoryColor(blk) }}
+                                    >
+                                      {getCategoryLabel(blk)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {tasks.length} tâche{tasks.length > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                  <ul className="space-y-0.5">
+                                    {tasks.map((t) => (
+                                      <li
+                                        key={t.id}
+                                        className="text-[11px] text-slate-600 flex gap-1.5"
+                                      >
+                                        <span className="font-mono font-bold shrink-0">
+                                          {t.seq || '—'}
+                                        </span>
+                                        <span className="truncate" title={t.description}>
+                                          {t.description}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           )}
                         </div>
                       </div>
