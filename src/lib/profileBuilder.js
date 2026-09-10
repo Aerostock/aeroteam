@@ -25,7 +25,7 @@ function shiftMembers(days, shift) {
   return out
 }
 
-export function buildProfileData(existing, aircraftInfo) {
+export function buildProfileData(existing, aircraftInfo, scope) {
   const data = existing || {
     tasks: [],
     teams: [],
@@ -38,8 +38,14 @@ export function buildProfileData(existing, aircraftInfo) {
   const norm = (n) => String(n || '').trim().toLowerCase()
   const shiftSet = new Set(SHIFT_TEAM_NAMES)
 
-  // Équipes existantes hors shift conservées telles quelles
-  const keptTeams = (data.teams || []).filter((t) => !shiftSet.has(norm(t.name)))
+  // Équipes existantes : conservées toutes, SAUF celle du shift visé
+  // (en mode scoped) ou les équipes shift (en mode semaine complète)
+  // qui sont reconstruites ci-dessous.
+  const keptTeams = (data.teams || []).filter((t) => {
+    const key = norm(t.name)
+    if (scope) return key !== norm(scope.shift)
+    return !shiftSet.has(key)
+  })
 
   // Équipes shift : id conservé si l'équipe existe déjà, membres remplacés
   const existingShiftIds = {}
@@ -48,23 +54,33 @@ export function buildProfileData(existing, aircraftInfo) {
     if (shiftSet.has(key)) existingShiftIds[key] = t.id
   })
 
-  const newShiftTeams = SHIFT_TEAM_NAMES.map((s, idx) => ({
-    id: existingShiftIds[s] || `team-${s}-${Date.now()}`,
-    name: cap(s),
-    members: [...new Set(shiftMembers(aircraftInfo.days, s))],
-    color: TEAM_COLORS[idx % TEAM_COLORS.length],
-    locked: false,
-  }))
+  const newShiftTeams = SHIFT_TEAM_NAMES.filter((s) => !scope || s === norm(scope.shift)).map(
+    (s, idx) => ({
+      id: existingShiftIds[s] || `team-${s}-${Date.now()}`,
+      name: cap(s),
+      members: [...new Set(shiftMembers(aircraftInfo.days, s))],
+      color: TEAM_COLORS[idx % TEAM_COLORS.length],
+      locked: false,
+    })
+  )
 
-  // Membres : union (existants + tous shifts)
+  // Membres : union (existants + tous les shifts retenus)
   const allShiftMembers = SHIFT_TEAM_NAMES.reduce(
     (acc, s) => acc.concat(shiftMembers(aircraftInfo.days, s)),
     []
   )
   const members = [...new Set([...(data.members || []), ...allShiftMembers])]
 
-  // Notes consignes : les anciennes [C] sont remplacées
-  const keptNotes = (data.notes || []).filter((n) => !String(n.title || '').startsWith(NOTE_PREFIX))
+  // Notes consignes : en mode semaine, les anciennes [C] sont remplacées ;
+  // en mode scoped, seule la note du jour × shift visé est remplacée.
+  const NOTE_TITLE = scope
+    ? `${NOTE_PREFIX}${String(scope.day || '').toUpperCase()} ${cap(scope.shift)}`
+    : null
+  const keptNotes = (data.notes || []).filter((n) => {
+    const title = String(n.title || '')
+    if (scope) return title !== NOTE_TITLE
+    return !title.startsWith(NOTE_PREFIX)
+  })
   const consigneNotes = []
   Object.entries(aircraftInfo.days || {}).forEach(([day, d]) => {
     Object.entries(d.consignes || {}).forEach(([shift, tasks]) => {

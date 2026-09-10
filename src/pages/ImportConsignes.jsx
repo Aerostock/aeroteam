@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import {
   parseConsignesWorkbook,
-  summarizeAircrafts,
 } from '../lib/consignesExcel'
 import { buildProfileData, aircraftProfileLabel } from '../lib/profileBuilder'
 import * as profileStore from '../lib/profileStore'
@@ -30,7 +29,6 @@ export default function ImportConsignes() {
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [report, setReport] = useState(null)
-  const [aircrafts, setAircrafts] = useState(null)
   const [selectedDay, setSelectedDay] = useState('')
   const [selectedShift, setSelectedShift] = useState('matin')
   const [running, setRunning] = useState(false)
@@ -46,7 +44,6 @@ export default function ImportConsignes() {
         const workbook = XLSX.read(data, { type: 'array' })
         const results = parseConsignesWorkbook(workbook)
         setReport(results)
-        setAircrafts(summarizeAircrafts(results))
         const days = Object.keys(results)
         setSelectedDay(days[0] || '')
         setSelectedShift('matin')
@@ -59,8 +56,43 @@ export default function ImportConsignes() {
 
   const days = report ? Object.keys(report) : []
   const sheet = report && selectedDay ? report[selectedDay] : null
-  const eligibleAircrafts = aircrafts ? aircrafts.filter((a) => a.totalTasks > 0) : []
-  const skippedAircrafts = aircrafts ? aircrafts.filter((a) => a.totalTasks === 0) : []
+
+  // Avions éligibles pour le jour × shift sélectionné : consignes remplies
+  const eligible = useMemo(() => {
+    if (!sheet) return []
+    return sheet.blocks
+      .filter((b) => (b.shifts[selectedShift] || []).length > 0)
+      .map((b) => b.immat)
+  }, [sheet, selectedShift])
+
+  // Avions présents à l'effectif de ce shift mais sans consignes ce jour-là
+  const skippedBydayshift = useMemo(() => {
+    if (!sheet) return []
+    const haveTasks = new Set(eligible)
+    const shiftEff = sheet.effectif.find((s) => s.shift === selectedShift)
+    const withEffectif = new Set(
+      (shiftEff?.members || []).flatMap((m) => m.aircrafts)
+    )
+    return [...withEffectif].filter((immat) => !haveTasks.has(immat)).sort()
+  }, [sheet, eligible, selectedShift])
+
+  const aircraftInfoForScope = (immat) => {
+    const block = sheet.blocks.find((b) => b.immat === immat)
+    const shiftEff = sheet.effectif.find((s) => s.shift === selectedShift)
+    const members = (shiftEff?.members || [])
+      .filter((m) => m.aircrafts.includes(immat))
+      .map((m) => m.name)
+    return {
+      immat,
+      totalTasks: (block?.shifts[selectedShift] || []).length,
+      days: {
+        [selectedDay]: {
+          [selectedShift]: [...new Set(members)],
+          consignes: { [selectedShift]: block?.shifts[selectedShift] || [] },
+        },
+      },
+    }
+  }
 
   const totalMembers = report
     ? Object.values(report).reduce(
@@ -76,15 +108,15 @@ export default function ImportConsignes() {
     'border border-slate-300 rounded-md px-3 py-2 text-sm bg-white'
 
   const runCreation = async () => {
-    if (!eligibleAircrafts.length || !activeProfile?.code) return
+    if (!eligible.length || !activeProfile?.code || !sheet) return
     setRunning(true)
     setResults([])
     const out = []
     const created = []
     const updated = []
 
-    for (const aircraft of eligibleAircrafts) {
-      const immat = aircraft.immat
+    for (const immat of eligible) {
+      const aircraftInfo = aircraftInfoForScope(immat)
       try {
         const lookup = await profileStore.getProfile(immat)
         let rev = lookup?.rev ?? 0
@@ -97,7 +129,6 @@ export default function ImportConsignes() {
             immat
           )
           if (res?.error === 'code_exists') {
-            // quelqu'un l'a créé entre-temps (rare)
             const again = await profileStore.getProfile(immat)
             rev = again?.rev ?? 0
           } else if (res?.error) {
@@ -109,11 +140,12 @@ export default function ImportConsignes() {
         }
 
         const current = createdNow ? {} : lookup?.data || {}
-        const merged = buildProfileData(current, aircraft)
+        const scope = { day: selectedDay, shift: selectedShift }
+        const merged = buildProfileData(current, aircraftInfo, scope)
         let saved = await profileStore.saveProfileData(immat, merged, rev, false)
         if (saved?.error === 'conflict') {
           const fresh = await profileStore.getProfile(immat)
-          const merged2 = buildProfileData(fresh?.data || {}, aircraft)
+          const merged2 = buildProfileData(fresh?.data || {}, aircraftInfo, scope)
           saved = await profileStore.saveProfileData(immat, merged2, fresh?.rev ?? 0, false)
           rev = fresh?.rev ?? 0
         }
@@ -134,8 +166,8 @@ export default function ImportConsignes() {
       ...out,
       {
         summary: `Terminé : ${created.length} profil(s) créé(s), ${updated.length} mis à jour, ${
-        out.filter((r) => !r.ok).length
-      } échec(s).`,
+          out.filter((r) => !r.ok).length
+        } échec(s) — ${selectedDay} ${selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}.`,
       },
     ])
     setRunning(false)
@@ -206,33 +238,37 @@ export default function ImportConsignes() {
           </div>
 
           {/* Phase 2 — création des profils */}
-          {aircrafts && aircrafts.length > 0 && (
+          {report && (
             <div className="bg-white rounded-xl shadow p-4 sm:p-6">
               <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
                 <Rocket className="h-5 w-5 text-sky-500" /> Création des profils avion
               </h2>
               <p className="text-xs text-slate-500 mb-4">
-                Crée ou met à jour un profil par immatriculation (code = matricule) pour les avions
-                ayant <strong>au moins une consigne remplie</strong>. Équipes Matin / Soir / Nuit
-                pré-remplies avec l'effectif (remplacement), consignes insérées dans le Bloc-notes en
-                [C]. Tâches, affectations et autres équipes existantes sont conservées.
+                Créé ou met à jour les profils des avions ayant des consignes{' '}
+                <strong>
+                  {selectedDay} — {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}
+                </strong>
+                . L'équipe {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)} de chaque
+                profil est remplie avec l'effectif de ce jour, et la consigne du jour est insérée
+                dans le Bloc-notes (note [C] remplacée si déjà présente). Les autres équipes,
+                tâches et affectations sont conservées.
               </p>
-              {skippedAircrafts.length > 0 && (
+              {skippedBydayshift.length > 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                  {skippedAircrafts.length} avion(s) sans consigne ignoré(s) :{' '}
-                  {skippedAircrafts.map((a) => a.immat).join(', ')}
+                  {skippedBydayshift.length} avion(s) à l'effectif de ce shift mais sans consigne
+                  ce jour : {skippedBydayshift.join(', ')}
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={runCreation}
-                  disabled={running || eligibleAircrafts.length === 0}
+                  disabled={running || eligible.length === 0}
                   className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   {running
                     ? 'Création en cours…'
-                    : `Créer / mettre à jour les ${eligibleAircrafts.length} profils`}
+                    : `Créer / mettre à jour les ${eligible.length} profils (${selectedDay} ${selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)})`}
                 </button>
                 {running && <span className="text-sm text-slate-500">ne fermez pas l'onglet</span>}
               </div>

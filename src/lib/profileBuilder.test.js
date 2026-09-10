@@ -73,3 +73,42 @@ describe('aircraftProfileLabel', () => {
     expect(aircraftProfileLabel('F-GSQB')).toBe('Équipe F-GSQB')
   })
 })
+
+describe('buildProfileData scoped (jour × shift)', () => {
+  it('ne touche que l’équipe du shift visé et remplace sa note [C]', () => {
+    const existing = {
+      tasks: [{ id: 't1', description: 'x' }],
+      teams: [
+        { id: 'matin-id', name: 'Matin', members: ['ANCIEN (M)'], color: '#0ea5e9', locked: false },
+        { id: 'soir-id', name: 'Soir', members: [], color: '#6366f1', locked: false },
+      ],
+      assignments: { t1: 'matin-id' },
+      members: ['ANCIEN (M)'],
+      prepTasks: [],
+      notes: [
+        { id: 'n1', title: '[C] MERCREDI Soir', content: 'ancienne' },
+        { id: 'n2', title: '[C] LUNDI Matin', content: 'autre jour' },
+      ],
+      pockets: [],
+    }
+    const scoped = {
+      immat: 'F-GSQB',
+      days: {
+        MERCREDI: {
+          soir: ['DIAS (BRUNO)', 'AYAD (FARID)'],
+          consignes: { soir: ['LEADER AIDE SPE 02', 'WASTE'] },
+        },
+      },
+    }
+    const data = buildProfileData(existing, scoped, { day: 'MERCREDI', shift: 'soir' })
+    expect(data.teams).toHaveLength(2)
+    expect(data.teams.find((t) => t.id === 'matin-id').members).toEqual(['ANCIEN (M)'])
+    expect(data.teams.find((t) => t.id === 'soir-id').members).toEqual(['DIAS (BRUNO)', 'AYAD (FARID)'])
+    expect(data.assignments.t1).toBe('matin-id')
+    const soir = data.notes.find((n) => n.title === '[C] MERCREDI Soir')
+    expect(soir.content).toContain('- LEADER AIDE SPE 02')
+    expect(data.notes.some((n) => n.content === 'ancienne')).toBe(false)
+    // La note des autres jours reste
+    expect(data.notes.some((n) => n.title === '[C] LUNDI Matin')).toBe(true)
+  })
+})
