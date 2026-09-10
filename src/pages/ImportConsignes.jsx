@@ -257,14 +257,14 @@ export default function ImportConsignes() {
                 <Rocket className="h-5 w-5 text-sky-500" /> Création des profils avion
               </h2>
               <p className="text-xs text-slate-500 mb-4">
-                Créé ou met à jour les profils des avions ayant des consignes{' '}
+                Crée ou met à jour les profils des avions ayant des consignes{' '}
                 <strong>
                   {selectedDay} — {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)}
                 </strong>
-                . L'équipe {selectedShift.charAt(0).toUpperCase() + selectedShift.slice(1)} de chaque
-                profil est remplie avec l'effectif de ce jour, et la consigne du jour est insérée
-                dans le Bloc-notes (note [C] remplacée si déjà présente). Les autres équipes,
-                tâches et affectations sont conservées.
+                . L'effectif de ce jour × shift est ajouté aux <strong>membres pré-enregistrés</strong>{' '}
+                du profil (aucune équipe n'est créée : le leader monte ses équipes dans la page
+                Équipes), et la consigne du jour est insérée dans le Bloc-notes (note [C] remplacée
+                si déjà présente). Tâches, équipes et affectations existantes sont conservées.
               </p>
               {skippedBydayshift.length > 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
