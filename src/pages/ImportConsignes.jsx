@@ -270,7 +270,7 @@ export default function ImportConsignes() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Import consignes (rapport)</h1>
         <p className="text-slate-600 mt-1">
-          Phase 1 — analyse du fichier CONSIGNES S37 : choisissez le jour et le shift à consulter.
+          Analyse du fichier de consignes : choisissez le jour et le shift à consulter.
         </p>
       </div>
 
@@ -314,7 +314,7 @@ export default function ImportConsignes() {
         />
         <Upload className="h-10 w-10 mx-auto text-slate-400" />
         <p className="mt-3 font-medium text-slate-700">
-          Déposez le fichier « CONSIGNES S37.xlsm » ici
+          Déposez ici votre fichier de consignes (ex. CONSIGNES S37.xlsm)
         </p>
         <p className="text-sm text-slate-500 mt-1">Formats : .xlsm, .xlsx, .xls</p>
         {fileName && (
