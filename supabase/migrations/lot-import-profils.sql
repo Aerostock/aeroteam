@@ -43,3 +43,38 @@ begin
   return jsonb_build_object('ok', true, 'id', new_id, 'rev', 0);
 end;
 $$;
+
+-- Lecture des données d'un profil par l'admin (sans exposer le code)
+create or replace function public.admin_get_profile_data(
+  p_admin_code text,
+  p_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  is_admin boolean;
+  result jsonb;
+begin
+  select (public.check_admin(p_admin_code))->>'ok' into is_admin;
+  if is_admin is distinct from 'true' then
+    return jsonb_build_object('error', 'not_admin');
+  end if;
+
+  select to_jsonb(t)
+  into result
+  from (
+    select id::text as id, name, aircraft, rev, data
+    from public.profiles
+    where id = p_id
+  ) t;
+
+  if result is null then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+
+  return jsonb_build_object('ok', true, 'profile', result);
+end;
+$$;

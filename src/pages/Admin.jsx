@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as profileStore from '../lib/profileStore'
-import { ShieldCheck, UserPlus, Plus, KeyRound, Trash2, Users, Pencil, Check, X } from 'lucide-react'
+import {
+  ShieldCheck,
+  UserPlus,
+  Plus,
+  KeyRound,
+  Trash2,
+  Users,
+  Pencil,
+  Check,
+  X,
+  UserCog,
+  ClipboardList,
+} from 'lucide-react'
 
 export default function Admin() {
   const { createProfile, activeProfile, changeAdminCode, updateOwnProfile } = useApp()
@@ -23,6 +35,26 @@ export default function Admin() {
   const [profiles, setProfiles] = useState(null)
   const [profilesError, setProfilesError] = useState('')
   const [deleting, setDeleting] = useState(null)
+
+  const [viewProfile, setViewProfile] = useState(null)
+  const [viewData, setViewData] = useState(null)
+  const [viewLoading, setViewLoading] = useState(false)
+  const [viewError, setViewError] = useState('')
+
+  const openProfileView = async (profile) => {
+    setViewProfile(profile)
+    setViewData(null)
+    setViewError('')
+    setViewLoading(true)
+    try {
+      const res = await profileStore.adminGetProfileData(activeProfile?.code, profile.id)
+      if (res?.error) setViewError("Impossible de lire le profil.")
+      else setViewData(res.profile?.data || {})
+    } catch {
+      setViewError("Impossible de lire le profil (hors ligne ?).")
+    }
+    setViewLoading(false)
+  }
 
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -292,6 +324,13 @@ export default function Admin() {
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <button
+                          onClick={() => openProfileView(profile)}
+                          className="text-slate-400 hover:text-sky-600 p-1"
+                          title={`Voir les équipes du profil « ${profile.name} »`}
+                        >
+                          <UserCog className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => startEditProfile(profile)}
                           className="text-slate-400 hover:text-sky-600 p-1"
                           title={`Modifier le profil « ${profile.name} »`}
@@ -319,6 +358,128 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {viewProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setViewProfile(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
+              <h2 className="font-bold flex items-center gap-2">
+                <UserCog className="h-5 w-5 text-sky-400" />
+                {viewProfile.name}
+                <span className="text-sm font-normal text-slate-300">
+                  · {viewProfile.aircraft || '—'}
+                </span>
+              </h2>
+              <button
+                onClick={() => setViewProfile(null)}
+                className="text-slate-400 hover:text-white p-1"
+                title="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {viewLoading && <p className="text-sm text-slate-400">Chargement…</p>}
+              {viewError && <p className="text-sm text-red-600">{viewError}</p>}
+
+              {viewData && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <StatBox label="Tâches" value={(viewData.tasks || []).length} />
+                    <StatBox
+                      label="Affectées"
+                      value={Object.keys(viewData.assignments || {}).filter(
+                        (id) => viewData.assignments[id]
+                      ).length}
+                    />
+                    <StatBox
+                      label="Non affectées"
+                      value={
+                        (viewData.tasks || []).length -
+                        Object.keys(viewData.assignments || {}).filter(
+                          (id) => viewData.assignments[id]
+                        ).length
+                      }
+                    />
+                    <StatBox label="Membres" value={(viewData.members || []).length} />
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-sky-500" /> Équipes du profil (
+                      {(viewData.teams || []).length})
+                    </h3>
+                    {(viewData.teams || []).length === 0 && (
+                      <p className="text-sm text-slate-400 italic">
+                        Aucune équipe créée — le leader monte ses équipes dans la page « Équipes »
+                        de son profil.
+                      </p>
+                    )}
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {(viewData.teams || []).map((team) => {
+                        const teamTasks = (viewData.tasks || []).filter(
+                          (t) => viewData.assignments?.[t.id] === team.id
+                        )
+                        return (
+                          <div
+                            key={team.id}
+                            className="border border-slate-200 rounded-lg overflow-hidden"
+                          >
+                            <div
+                              className="px-3 py-2 flex items-center justify-between gap-2 text-white"
+                              style={{ backgroundColor: team.color || '#64748b' }}
+                            >
+                              <span className="font-bold text-sm truncate">{team.name}</span>
+                              <span className="text-xs opacity-90 shrink-0">
+                                {teamTasks.length} tâche{teamTasks.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div className="p-3">
+                              <div className="flex flex-wrap gap-1">
+                                {team.members.length === 0 && (
+                                  <span className="text-xs text-slate-400 italic">—</span>
+                                )}
+                                {team.members.map((m, i) => (
+                                  <span
+                                    key={i}
+                                    className="bg-slate-100 text-slate-700 rounded-full px-2 py-0.5 text-[11px]"
+                                  >
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                              {teamTasks.length > 0 && (
+                                <ul className="mt-2 space-y-0.5 max-h-36 overflow-y-auto">
+                                  {teamTasks.map((t) => (
+                                    <li key={t.id} className="text-[11px] text-slate-600 flex gap-1.5">
+                                      <span className="font-mono font-bold shrink-0">
+                                        {t.seq || '—'}
+                                      </span>
+                                      <span className="truncate" title={t.description}>
+                                        {t.description}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-xl">
         <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-4">
@@ -365,6 +526,15 @@ export default function Admin() {
       <p className="text-xs text-slate-400 flex items-center gap-1.5">
         <ShieldCheck className="h-4 w-4" /> Connecté en tant qu'administrateur : {activeProfile?.name}
       </p>
+    </div>
+  )
+}
+
+function StatBox({ label, value }) {
+  return (
+    <div className="bg-slate-50 rounded-lg p-3 text-center">
+      <div className="text-xl font-bold text-slate-900">{value}</div>
+      <div className="text-[11px] text-slate-500">{label}</div>
     </div>
   )
 }
