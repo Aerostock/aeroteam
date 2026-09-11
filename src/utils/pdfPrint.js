@@ -1,10 +1,42 @@
-// Télécharge le contenu d'un PDF (jsPDF) au format JPEG (rendu image)
-export function downloadPdfAsJpeg(doc, filename) {
+// Export PDF → JPEG (fiable) : rend chaque page via pdf.js puis assemble
+// les pages en une image unique téléchargeable.
+import * as pdfjsLib from 'pdfjs-dist'
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc
+
+export async function downloadPdfAsJpeg(doc, filename) {
   try {
-    const canvas = doc.output('canvas')
-    const url = canvas.toDataURL('image/jpeg', 0.92)
+    const blob = doc.output('blob')
+    const buf = await blob.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise
+    const canvases = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const vp1 = page.getViewport({ scale: 1 })
+      const scale = Math.min(2, 2800 / vp1.width)
+      const vp = page.getViewport({ scale })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.floor(vp.width)
+      canvas.height = Math.floor(vp.height)
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise
+      canvases.push(canvas)
+    }
+    const width = Math.max(...canvases.map((c) => c.width))
+    const height = canvases.reduce((acc, c) => acc + c.height, 0)
+    const out = document.createElement('canvas')
+    out.width = width
+    out.height = height
+    const ctx = out.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    let y = 0
+    canvases.forEach((c) => {
+      ctx.drawImage(c, 0, y)
+      y += c.height
+    })
     const a = document.createElement('a')
-    a.href = url
+    a.href = out.toDataURL('image/jpeg', 0.92)
     a.download = (filename || 'document.pdf').replace(/\.pdf$/i, '') + '.jpg'
     document.body.appendChild(a)
     a.click()
@@ -31,7 +63,6 @@ export function openPdfPrint(doc) {
       iframe.contentWindow.focus()
       iframe.contentWindow.print()
     } catch {
-      // visionneur indisponible : on ouvre le PDF dans un onglet
       window.open(url, '_blank')
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     }

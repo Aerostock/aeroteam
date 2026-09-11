@@ -117,10 +117,7 @@ export default function Layout({ children }) {
               }
             >
               {item.ordre && (
-                <span
-                  className="absolute -top-1.5 -left-1.5 h-4 min-w-4 px-0.5 rounded-full bg-amber-400 text-[10px] font-bold text-slate-900 flex items-center justify-center shadow"
-                  title={`Étape ${item.ordre} — ordre d'utilisation`}
-                >
+                <span className="inline-flex items-center justify-center h-4 w-4 mr-1.5 rounded-full bg-amber-400 text-[10px] font-bold text-slate-900 align-middle" title={`Étape ${item.ordre} — ordre d'utilisation`}>
                   {item.ordre}
                 </span>
               )}

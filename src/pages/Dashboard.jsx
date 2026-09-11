@@ -552,10 +552,23 @@ export default function Dashboard() {
               {selectedTeamTasks.length > 0 && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[520px]">
+                  <thead>
+                    <tr className="text-left bg-slate-100 rounded">
+                      <th className="px-3 py-2 font-semibold text-slate-700">TRFX</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">N°</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Type</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Bloc</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Tâche</th>
+                      <th className="px-3 py-2 font-semibold text-slate-700">Appareil</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {orderedTeamGroups.map((group, _gi) => (
                       <Fragment key={`g-${group.description}`}>
-                        <tr className="bg-slate-100">
+                        <tr className="h-2.5 bg-slate-200/70" aria-hidden="true">
+                          <td colSpan={6} />
+                        </tr>
+                        <tr className="bg-slate-50">
                           <td colSpan={6} className="px-3 py-1.5 text-xs font-bold text-slate-700">
                             {group.description || 'Sans description'}{' '}
                             <span className="font-normal text-slate-400">
@@ -572,21 +585,27 @@ export default function Dashboard() {
                               {task.seq || '—'}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap">
-                              <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
+                              <span
+                                className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                                style={{ backgroundColor: getCategoryColor(task.taskType) }}
+                              >
                                 {getCategoryLabel(task.taskType) || '—'}
                               </span>
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap">
                               {task.workArea ? (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getZoneColor(task.workArea, zones) }}>
+                                <span
+                                  className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                                  style={{ backgroundColor: getZoneColor(task.workArea, zones) }}
+                                >
                                   {task.workArea}
                                 </span>
                               ) : (
                                 <span className="text-slate-400">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 max-w-md text-slate-500 text-xs" title={task.description}>
-                              <p className="truncate italic">(même tâche)</p>
+                            <td className="px-3 py-2 max-w-md truncate text-slate-600 text-xs" title={task.description}>
+                              {task.description || '—'}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-slate-600">
                               {task.registration || '—'}
