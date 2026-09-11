@@ -6,6 +6,7 @@ import {
   findSheetDate,
   parseEffectif,
   parseBlocks,
+  toDateString,
 } from './consignesExcel'
 
 function buildFixtureSheet() {
@@ -85,6 +86,12 @@ describe('findSheetDate', () => {
   it('lit la date de la feuille', () => {
     const { rows } = buildFixtureSheet()
     expect(findSheetDate(rows)).toBe('2026-09-08')
+  })
+
+  it('convertit les numéros de série Excel en date', () => {
+    expect(toDateString(46274)).toBe('2026-09-09')
+    expect(toDateString('2026-09-08')).toBe('2026-09-08')
+    expect(toDateString(undefined)).toBe('')
   })
 })
 

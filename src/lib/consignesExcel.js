@@ -22,11 +22,23 @@ function norm(s) {
     .replace(/\s+/g, '')
 }
 
+export function toDateString(v) {
+  if (v instanceof Date) {
+    const s = v.toISOString().slice(0, 10)
+    return s === '1970-01-01' && v.getTime() < 1000000000 ? '' : s
+  }
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    // Numéro de série Excel (jours depuis le 30/12/1899)
+    return new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0, 10)
+  }
+  return String(v == null ? '' : v)
+}
+
 export function findSheetDate(rows) {
   for (let r = 0; r < Math.min(rows.length, 8); r++) {
     for (let c = 0; c < 8; c++) {
       if (norm(cell(rows, r, c)) === 'date') {
-        const v = cell(rows, r, c + 1)
+        const v = toDateString(rows[r] ? rows[r][c + 1] : undefined)
         if (v) return v
       }
     }
