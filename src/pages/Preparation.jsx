@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { openPdfPrint } from '../utils/pdfPrint'
 import { useApp } from '../context/AppContext'
 import {
   detectColumns,
@@ -27,41 +28,6 @@ import {
   Check,
   FileDown,
 } from 'lucide-react'
-
-const PRINT_STYLE_ID = 'aero-print-style'
-
-function injectPrintStyle() {
-  document.getElementById(PRINT_STYLE_ID)?.remove()
-  const style = document.createElement('style')
-  style.id = PRINT_STYLE_ID
-  style.innerHTML = `
-    @media print {
-      body * { visibility: hidden; }
-      .print-target, .print-target * { visibility: visible; }
-      .print-target {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        max-height: none;
-        overflow: visible;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .print-target, .print-target * {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .print-target [class*="max-h"], .print-target [class*="overflow"] {
-        max-height: none !important;
-        overflow: visible !important;
-      }
-      .print-pocket-block { break-inside: avoid; page-break-inside: avoid; }
-      .print-hide { display: none !important; }
-    }
-  `
-  document.head.appendChild(style)
-}
 
 export default function Preparation() {
   const {
@@ -251,14 +217,7 @@ export default function Preparation() {
     setPrintPocketId(pocketId)
   }
 
-  const handlePrint = () => {
-    injectPrintStyle()
-    // Ajour du timeout pour laisser la suppression du style prendre effet
-    setTimeout(() => window.print(), 0)
-  }
-
-  const exportPocketPdf = () => {
-    if (!printPocket) return
+  const buildPocketPdf = () => {
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -346,13 +305,23 @@ export default function Preparation() {
         }
       })
     })
+    return doc
+  }
 
+  const exportPocketPdf = () => {
+    if (!printPocket) return
+    const doc = buildPocketPdf()
     doc.save(
       `pochette-${printPocket.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '') || 'sans-nom'}-${new Date().toISOString().slice(0, 10)}.pdf`
     )
+  }
+
+  const printPocketPdf = () => {
+    if (!printPocket) return
+    openPdfPrint(buildPocketPdf())
   }
 
   const printPocket = printPocketId ? pocketById[printPocketId] : null
@@ -874,7 +843,7 @@ export default function Preparation() {
                   <FileDown className="h-4 w-4" /> Exporter en PDF
                 </button>
                 <button
-                  onClick={handlePrint}
+                  onClick={printPocketPdf}
                   className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-700 text-sm font-semibold"
                 >
                   <Printer className="h-4 w-4" /> Imprimer

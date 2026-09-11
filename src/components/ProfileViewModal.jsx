@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import * as profileStore from '../lib/profileStore'
-import { getCategoryColor, getCategoryLabel, getZoneColor } from '../utils/helpers'
-import { X, UserCog, Users, ClipboardList } from 'lucide-react'
+import {
+  getCategoryColor,
+  getCategoryLabel,
+  getZoneColor,
+  hexToRgb,
+} from '../utils/helpers'
+import { openPdfPrint } from '../utils/pdfPrint'
+import { X, UserCog, Users, ClipboardList, FileDown, Printer, Eraser } from 'lucide-react'
 
 function StatBox({ label, value }) {
   return (
@@ -12,10 +20,185 @@ function StatBox({ label, value }) {
   )
 }
 
+const groupBySubTask = (tasks) => {
+  const groups = {}
+  tasks.forEach((t) => {
+    const z = t.workArea || 'Autre'
+    if (!groups[z]) groups[z] = []
+    groups[z].push(t)
+  })
+  return Object.entries(groups).sort(
+    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
+  )
+}
+
+const groupByBlock = (tasks) => {
+  const by = {}
+  tasks.forEach((t) => {
+    const b = t.taskType || 'AUTRE'
+    if (!by[b]) by[b] = []
+    by[b].push(t)
+  })
+  return Object.entries(by).sort((a, b) => b[1].length - a[1].length)
+}
+
+function buildRecapPdf(profile, data) {
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 10
+  const contentWidth = pageWidth - margin * 2
+  const assignedCount = Object.keys(data?.assignments || {}).filter(
+    (id) => data.assignments[id]
+  ).length
+  const notes = (data?.notes || []).filter((n) =>
+    String(n.title || '').startsWith('[C] ')
+  )
+
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`${profile.name}  ·  ${profile.aircraft || ''}`, margin, 15)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text(
+    `${(data?.tasks || []).length} tâches · ${assignedCount} affectées · ${
+      (data?.tasks || []).length - assignedCount
+    } non affectées · ${(data?.members || []).length} membres · ${new Date().toLocaleDateString('fr-FR')}`,
+    margin,
+    21
+  )
+
+  let y = 28
+
+  const ensureRoom = (needed) => {
+    if (y + needed > pageHeight - 15) {
+      doc.addPage()
+      y = 14
+    }
+  }
+
+  // Consignes
+  if (notes.length > 0) {
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Consignes', margin, y)
+    y += 6
+    notes.forEach((n) => {
+      ensureRoom(12)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(n.title).replace('[C] ', ''), margin, y)
+      y += 4
+      doc.setFont('helvetica', 'normal')
+      const lines = doc.splitTextToSize(n.content || '', contentWidth)
+      lines.forEach((line) => {
+        ensureRoom(4)
+        doc.text(line, margin, y)
+        y += 4
+      })
+      y += 3
+    })
+  } else {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Aucune consigne importée.', margin, y)
+    y += 8
+  }
+
+  // Équipes
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  ensureRoom(12)
+  doc.text(`Équipes (${(data?.teams || []).length})`, margin, y)
+  y += 6
+
+  ;(data?.teams || []).forEach((team) => {
+    const teamTasks = (data?.tasks || []).filter(
+      (t) => data.assignments?.[t.id] === team.id
+    )
+    ensureRoom(16)
+    doc.setFillColor(...hexToRgb(team.color || '#64748b'))
+    doc.rect(margin, y - 4.5, contentWidth, 7, 'F')
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text(
+      `${team.name} · ${teamTasks.length} tâche${teamTasks.length > 1 ? 's' : ''}`,
+      margin + 2,
+      y
+    )
+    doc.setTextColor(0, 0, 0)
+    y += 3
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    const memberLine = team.members.join(', ') || '—'
+    doc.text(`Membres : ${memberLine}`, margin, y + 4)
+    y += 7
+    groupByBlock(teamTasks).forEach(([blk, tasks]) => {
+      ensureRoom(12)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text(
+        `${getCategoryLabel(blk)} (${tasks.length})`,
+        margin + 2,
+        y
+      )
+      y += 3
+      groupBySubTask(tasks).forEach(([zone, zoneTasks]) => {
+        autoTable(doc, {
+          startY: y,
+          pageBreak: 'auto',
+          margin: { left: margin + 4, right: margin },
+          head: [
+            [
+              {
+                content: `${zone} (${zoneTasks.length})`,
+                colSpan: 3,
+                styles: {
+                  fillColor: [...hexToRgb(getZoneColor(zone)), 35],
+                  textColor: [15, 23, 42],
+                  fontStyle: 'bold',
+                  fontSize: 8,
+                },
+              },
+            ],
+          ],
+          body: zoneTasks.map((t) => [
+            t.seq !== undefined && t.seq !== '' ? String(t.seq) : '—',
+            t.description || '',
+            t.registration || '',
+          ]),
+          styles: { fontSize: 7.5, cellPadding: 1 },
+          columnStyles: {
+            0: { cellWidth: 12 },
+            2: { cellWidth: 22 },
+          },
+        })
+        y = doc.lastAutoTable.finalY + 3
+        ensureRoom(6)
+      })
+    })
+    y += 4
+  })
+
+  return doc
+}
+
+function exportRecapPdf(profile, data) {
+  const doc = buildRecapPdf(profile, data)
+  doc.save(
+    `recap-${(profile.name || 'profil')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'profil'}-${new Date().toISOString().slice(0, 10)}.pdf`
+  )
+}
+
 export default function ProfileViewModal({ profile, adminCode, onClose }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [purging, setPurging] = useState(false)
 
   useEffect(() => {
     if (!profile) return
@@ -42,6 +225,28 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
     }
   }, [profile, adminCode])
 
+  const handlePurge = async () => {
+    if (
+      !window.confirm(
+        'Supprimer les consignes [C] des jours déjà passés (vous gardez aujourd’hui et les jours à venir) ? Cette action est irréversible.'
+      )
+    ) {
+      return
+    }
+    setPurging(true)
+    setError('')
+    try {
+      const res = await profileStore.adminPurgeConsignes(adminCode, profile.id)
+      if (res?.ok) {
+        const fresh = await profileStore.adminGetProfileData(adminCode, profile.id)
+        if (fresh?.ok) setData(fresh.profile?.data || {})
+      } else setError(res?.error === 'not_admin' ? "Votre code administrateur n'est plus valide." : 'Échec de la purge.')
+    } catch {
+      setError('Échec de la purge (hors ligne ?).')
+    }
+    setPurging(false)
+  }
+
   if (!profile) return null
 
   const assignedCount = Object.keys(data?.assignments || {}).filter(
@@ -54,18 +259,46 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]"
+        className="bg-white rounded-xl shadow-xl w-full max-w-4xl flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
+        <div className="px-5 py-4 border-b flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white rounded-t-xl">
           <h2 className="font-bold flex items-center gap-2">
             <UserCog className="h-5 w-5 text-sky-400" />
             {profile.name}
             <span className="text-sm font-normal text-slate-300">· {profile.aircraft || '—'}</span>
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1" title="Fermer">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {data && (
+              <>
+                <button
+                  onClick={() => exportRecapPdf(profile, data)}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+                  title="Télécharger le récap en PDF"
+                >
+                  <FileDown className="h-4 w-4" /> Exporter PDF
+                </button>
+                <button
+                  onClick={() => openPdfPrint(buildRecapPdf(profile, data))}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+                  title="Imprimer le récap au format PDF"
+                >
+                  <Printer className="h-4 w-4" /> Imprimer
+                </button>
+                <button
+                  onClick={handlePurge}
+                  disabled={purging}
+                  className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
+                  title="Supprimer les consignes des jours passés"
+                >
+                  <Eraser className="h-4 w-4" /> {purging ? 'Purge…' : 'Purger passés'}
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1" title="Fermer">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto">
           {loading && <p className="text-sm text-slate-400">Chargement…</p>}
@@ -82,9 +315,11 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
 
               <div>
                 <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-amber-500" /> Consignes ({(data.notes || []).filter((n) => String(n.title || '').startsWith('[C] ')).length})
+                  <ClipboardList className="h-4 w-4 text-amber-500" /> Consignes (
+                  {(data.notes || []).filter((n) => String(n.title || '').startsWith('[C] ')).length})
                 </h3>
-                {(data.notes || []).filter((n) => String(n.title || '').startsWith('[C] ')).length === 0 && (
+                {(data.notes || [])
+                  .filter((n) => String(n.title || '').startsWith('[C] ')).length === 0 && (
                   <p className="text-sm text-slate-400 italic">
                     Aucune consigne importée pour ce profil.
                   </p>
@@ -122,26 +357,7 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                     const teamTasks = (data.tasks || []).filter(
                       (t) => data.assignments?.[t.id] === team.id
                     )
-                    const byBlock = {}
-                    teamTasks.forEach((t) => {
-                      const b = t.taskType || 'AUTRE'
-                      if (!byBlock[b]) byBlock[b] = []
-                      byBlock[b].push(t)
-                    })
-                    const blockOrder = Object.entries(byBlock).sort(
-                      (a, b) => b[1].length - a[1].length
-                    )
-                    const groupBySubTask = (tasks) => {
-                      const groups = {}
-                      tasks.forEach((t) => {
-                        const z = t.workArea || 'Autre'
-                        if (!groups[z]) groups[z] = []
-                        groups[z].push(t)
-                      })
-                      return Object.entries(groups).sort(
-                        (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
-                      )
-                    }
+                    const blockOrder = groupByBlock(teamTasks)
                     return (
                       <div
                         key={team.id}

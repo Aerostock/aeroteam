@@ -18,6 +18,7 @@ import {
   XCircle,
   Pencil,
   RotateCcw,
+  Clock,
 } from 'lucide-react'
 
 const SHIFT_COLORS = {
@@ -27,6 +28,7 @@ const SHIFT_COLORS = {
 }
 
 const STATE_KEY = 'import-consignes-session-v1'
+const HISTORY_KEY = 'import-consignes-history'
 
 export default function ImportConsignes() {
   const { activeProfile } = useApp()
@@ -44,6 +46,34 @@ export default function ImportConsignes() {
   const [sessionInfo, setSessionInfo] = useState('')
   const [createdProfiles, setCreatedProfiles] = useState(null)
   const [viewProfile, setViewProfile] = useState(null)
+  const [history, setHistory] = useState([])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY)
+      if (raw) setHistory(JSON.parse(raw) || [])
+    } catch {
+      // historique illisible : ignoré
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const pushHistory = (entry) => {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, 20)
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+      } catch {
+        // stockage indisponible
+      }
+      return next
+    })
+  }
+
+  const clearHistory = () => {
+    localStorage.removeItem(HISTORY_KEY)
+    setHistory([])
+  }
 
   // Profils avion créés (persistés en base) : cartes permanentes
   const loadCreatedProfiles = async () => {
@@ -263,6 +293,16 @@ export default function ImportConsignes() {
     ])
     setRunning(false)
     await loadCreatedProfiles()
+    pushHistory({
+      date: new Date().toLocaleString('fr-FR'),
+      day: selectedDay,
+      shift: selectedShift,
+      created,
+      updated,
+      failed: out.filter((r) => !r.ok).length,
+      fileName,
+      aircrafts: eligible,
+    })
   }
 
   return (
@@ -341,6 +381,35 @@ export default function ImportConsignes() {
             </div>
           </div>
 
+          {history.length > 0 && (
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-sky-500" /> Historique des imports
+                </h2>
+                <button
+                  onClick={clearHistory}
+                  className="text-xs text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 rounded-md px-2 py-1"
+                >
+                  Effacer
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {history.map((h, i) => (
+                  <li key={i} className="text-xs text-slate-600 flex flex-wrap gap-x-2">
+                    <span className="text-slate-400">{h.date}</span>
+                    <span className="font-semibold">
+                      {h.day} {h.shift.charAt(0).toUpperCase() + h.shift.slice(1)}
+                    </span>
+                    <span className="text-green-700">{h.created.length} créé(s)</span>
+                    <span className="text-sky-700">{h.updated.length} mis à jour</span>
+                    {h.failed > 0 && <span className="text-red-600">{h.failed} échec(s)</span>}
+                    <span className="text-slate-400 truncate">{h.fileName}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* Profils avion créés — cartes permanentes */}
           {(createdProfiles?.length > 0 || createdProfiles === null) && (
             <div className="bg-white rounded-xl shadow p-4 sm:p-6">

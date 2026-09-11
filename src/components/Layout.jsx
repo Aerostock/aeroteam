@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Plane, LogOut } from 'lucide-react'
+import { Plane, LogOut, ClipboardList } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const navItems = [
@@ -15,7 +15,11 @@ const navItems = [
 ]
 
 export default function Layout({ children }) {
-  const { activeProfile, disconnect, isAdmin, saveState, resolveConflict } = useApp()
+  const { activeProfile, disconnect, isAdmin, saveState, resolveConflict, notes } = useApp()
+
+  const consignesCount = (notes || []).filter((n) =>
+    String(n.title || '').startsWith('[C] ')
+  ).length
 
   const items = isAdmin
     ? [...navItems, { to: '/admin', label: 'Administration' }, { to: '/import-consignes', label: 'Import consignes' }]
@@ -36,6 +40,16 @@ export default function Layout({ children }) {
             <span className="text-xl font-bold">AeroTeam</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {consignesCount > 0 && (
+              <NavLink
+                to="/"
+                end
+                className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 text-xs font-bold bg-amber-500/10 border border-amber-400/40 rounded-full px-3 py-1.5"
+                title={`${consignesCount} consigne(s) de l'avion — voir le tableau de bord`}
+              >
+                <ClipboardList className="h-4 w-4" /> {consignesCount}
+              </NavLink>
+            )}
             <div className="text-right leading-tight">
               <p className="text-[10px] sm:text-xs text-slate-400">Profil</p>
               <p className="text-xs sm:text-sm font-semibold text-sky-300 max-w-[30vw] sm:max-w-[200px] truncate">{activeProfile?.name}</p>

@@ -123,6 +123,15 @@ export async function adminRemoveAdmin(adminCode, targetCode) {
   return data
 }
 
+export async function adminPurgeConsignes(adminCode, profileId) {
+  const { data, error } = await supabase.rpc('admin_purge_consignes', {
+    p_admin_code: adminCode,
+    p_id: profileId,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error

@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { openPdfPrint } from '../utils/pdfPrint'
 import { useApp } from '../context/AppContext'
 import {
   getCategoryColor,
@@ -37,13 +38,31 @@ export default function Dashboard() {
   const { tasks, teams, assignments, notes } = useApp()
   const [selectedTeamId, setSelectedTeamId] = useState(null)
 
-  const consignes = useMemo(
-    () =>
-      notes
-        .filter((n) => String(n.title || '').startsWith('[C] '))
-        .sort((a, b) => String(a.title).localeCompare(String(b.title))),
-    [notes]
-  )
+  const consignes = useMemo(() => {
+    const DAY_ORDER = {
+      DIMANCHE: 0,
+      LUNDI: 1,
+      MARDI: 2,
+      MERCREDI: 3,
+      JEUDI: 4,
+      VENDREDI: 5,
+      SAMEDI: 6,
+    }
+    const todayIdx = new Date().getDay() // 0 = dimanche
+    return notes
+      .filter((n) => String(n.title || '').startsWith('[C] '))
+      .map((n) => {
+        const day = String(n.title).split(' ')[1]?.toUpperCase()
+        const idx = day ? DAY_ORDER[day] ?? 99 : 99
+        return { n, ordre: (idx - todayIdx + 7) % 7 }
+      })
+      .sort(
+        (a, b) =>
+          a.ordre - b.ordre ||
+          String(a.n.title).localeCompare(String(b.n.title))
+      )
+      .map((x) => x.n)
+  }, [notes])
 
   const ALL_BLOCKS_KEY = 'dashboard-expanded-blocks'
   const [expandedBlocks, setExpandedBlocks] = useState(() => [])
@@ -62,35 +81,7 @@ export default function Dashboard() {
     ? tasks.filter((t) => assignments[t.id] === selectedTeam.id)
     : []
 
-  const handlePrint = () => {
-    const styleId = 'aero-print-style'
-    document.getElementById(styleId)?.remove()
-    const style = document.createElement('style')
-    style.id = styleId
-    style.innerHTML = `
-      @media print {
-        body * { visibility: hidden; }
-        .print-target, .print-target * { visibility: visible; }
-        .print-target {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          max-height: none;
-          overflow: visible;
-        }
-        .print-target [class*="max-h"], .print-target [class*="overflow"] {
-          max-height: none !important;
-          overflow: visible !important;
-        }
-      }
-    `
-    document.head.appendChild(style)
-    window.print()
-  }
-
-  const exportTeamPdf = () => {
-    if (!selectedTeam || !selectedTeamTasks.length) return
+  const buildTeamPdf = () => {
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -176,13 +167,23 @@ export default function Dashboard() {
         }
       })
     })
+    return doc
+  }
 
+  const exportTeamPdf = () => {
+    if (!selectedTeam || !selectedTeamTasks.length) return
+    const doc = buildTeamPdf()
     doc.save(
       `equipe-${selectedTeam.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '') || 'sans-nom'}-${new Date().toISOString().slice(0, 10)}.pdf`
     )
+  }
+
+  const printTeamPdf = () => {
+    if (!selectedTeam || !selectedTeamTasks.length) return
+    openPdfPrint(buildTeamPdf())
   }
 
   const zones = useMemo(() => {
@@ -501,7 +502,7 @@ export default function Dashboard() {
                   <FileDown className="h-4 w-4" /> Exporter en PDF
                 </button>
                 <button
-                  onClick={handlePrint}
+                  onClick={printTeamPdf}
                   className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
                   title="Imprimer la charge de l'équipe"
                 >
