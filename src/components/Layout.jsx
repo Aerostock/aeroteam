@@ -3,11 +3,11 @@ import { Plane, LogOut, ClipboardList } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const navItems = [
-  { to: '/', label: 'Tableau de bord', end: true },
-  { to: '/import', label: 'Import Victory' },
-  { to: '/taches', label: 'Tâches' },
-  { to: '/equipes', label: 'Équipes' },
-  { to: '/affectation', label: 'Affectation' },
+  { to: '/', label: 'Tableau de bord', end: true, ordre: 5 },
+  { to: '/import', label: 'Import Victory', ordre: 1 },
+  { to: '/taches', label: 'Tâches', ordre: 4 },
+  { to: '/equipes', label: 'Équipes', ordre: 2 },
+  { to: '/affectation', label: 'Affectation', ordre: 3 },
   { to: '/export', label: 'Export' },
   { to: '/preparation', label: 'Préparation vac suivante' },
   { to: '/notes', label: 'Bloc-notes' },
@@ -109,13 +109,21 @@ export default function Layout({ children }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `px-3 py-2 rounded-md text-sm whitespace-nowrap font-medium transition-colors shrink-0 ${
+                `relative px-3 py-2 rounded-md text-sm whitespace-nowrap font-medium transition-colors shrink-0 ${
                   isActive
                     ? 'bg-sky-500 text-white'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`
               }
             >
+              {item.ordre && (
+                <span
+                  className="absolute -top-1.5 -left-1.5 h-4 min-w-4 px-0.5 rounded-full bg-amber-400 text-[10px] font-bold text-slate-900 flex items-center justify-center shadow"
+                  title={`Étape ${item.ordre} — ordre d'utilisation`}
+                >
+                  {item.ordre}
+                </span>
+              )}
               {item.label}
             </NavLink>
           ))}

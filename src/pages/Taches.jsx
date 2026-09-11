@@ -249,7 +249,7 @@ export default function Taches() {
                                   : task.mtxStatus === 'PAUSE'
                                   ? 'bg-amber-100 text-amber-700'
                                   : task.mtxStatus === 'COMPLETE'
-                                  ? 'bg-slate-200 text-slate-600'
+                                  ? 'bg-green-800 text-white'
                                   : 'bg-slate-100 text-slate-700'
                               }`}
                             >
