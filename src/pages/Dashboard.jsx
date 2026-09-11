@@ -98,7 +98,7 @@ export default function Dashboard() {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([zone, tasks]) => ({ zone, tasks })),
     }))
-  }, [selectedTeamTasks])
+  }, [selectedTeamTasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildTeamPdf = () => {
     const doc = new jsPDF()
