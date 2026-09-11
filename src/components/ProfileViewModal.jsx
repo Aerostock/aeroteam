@@ -42,6 +42,19 @@ const groupByBlock = (tasks) => {
   return Object.entries(by).sort((a, b) => b[1].length - a[1].length)
 }
 
+// Sous-tâches groupées ensemble d'abord, blocs à l'intérieur
+const groupTeamTasks = (teamTasks) => {
+  const zones = {}
+  teamTasks.forEach((t) => {
+    const z = t.workArea || 'Autre'
+    if (!zones[z]) zones[z] = []
+    zones[z].push(t)
+  })
+  return Object.entries(zones)
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+    .map(([zone, tasks]) => ({ zone, blocks: groupByBlock(tasks) }))
+}
+
 function profileTitle(profile) {
   const air = profile?.aircraft || ''
   const name = profile?.name || ''
@@ -375,7 +388,7 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                     const teamTasks = (data.tasks || []).filter(
                       (t) => data.assignments?.[t.id] === team.id
                     )
-                    const blockOrder = groupByBlock(teamTasks)
+                    const zoneGroups = groupTeamTasks(teamTasks)
                     return (
                       <div
                         key={team.id}
@@ -406,35 +419,35 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                           </div>
                           {teamTasks.length > 0 && (
                             <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">
-                              {blockOrder.map(([blk, tasks]) => (
-                                <div key={blk}>
-                                  <div className="flex items-center gap-1.5 mb-1">
+                              {zoneGroups.map(({ zone, blocks }) => (
+                                <div key={zone}>
+                                  <p className="mb-1 inline-flex items-center gap-1.5">
                                     <span
-                                      className="text-[10px] font-bold text-white rounded-full px-2 py-0.5"
-                                      style={{ backgroundColor: getCategoryColor(blk) }}
+                                      className="text-[10px] font-bold text-white rounded-full px-2 py-0.5 shadow-sm"
+                                      style={{ backgroundColor: getZoneColor(zone) }}
                                     >
-                                      {getCategoryLabel(blk)}
+                                      {zone}
                                     </span>
-                                    <span className="text-[10px] text-slate-400">
-                                      {tasks.length} tâche{tasks.length > 1 ? 's' : ''}
+                                    <span className="text-[10px] text-slate-400 font-semibold">
+                                      {blocks.reduce((a, [, b]) => a + b.length, 0)}
                                     </span>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    {groupBySubTask(tasks).map(([zone, zoneTasks]) => (
-                                      <div key={zone} className="pl-1">
-                                        <p className="mb-1 inline-flex items-center gap-1.5">
+                                  </p>
+                                  <div className="space-y-1.5 pl-1">
+                                    {blocks.map(([blk, tasks]) => (
+                                      <div key={blk}>
+                                        <div className="flex items-center gap-1.5 mb-0.5">
                                           <span
-                                            className="text-[10px] font-bold text-white rounded-full px-2 py-0.5 shadow-sm"
-                                            style={{ backgroundColor: getZoneColor(zone) }}
+                                            className="text-[10px] font-bold text-white rounded-full px-2 py-0.5"
+                                            style={{ backgroundColor: getCategoryColor(blk) }}
                                           >
-                                            {zone}
+                                            {getCategoryLabel(blk)}
                                           </span>
-                                          <span className="text-[10px] text-slate-400 font-semibold">
-                                            {zoneTasks.length}
+                                          <span className="text-[10px] text-slate-400">
+                                            {tasks.length}
                                           </span>
-                                        </p>
-                                        <ul className="space-y-0.5 mb-1.5">
-                                          {zoneTasks.map((t) => (
+                                        </div>
+                                        <ul className="space-y-0.5 mb-1">
+                                          {tasks.map((t) => (
                                             <li
                                               key={t.id}
                                               className="text-[11px] text-slate-600 flex gap-1.5"
