@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as profileStore from '../lib/profileStore'
-import { getCategoryColor, getCategoryLabel } from '../utils/helpers'
+import { getCategoryColor, getCategoryLabel, getZoneColor } from '../utils/helpers'
 import { X, UserCog, Users, ClipboardList } from 'lucide-react'
 
 function StatBox({ label, value }) {
@@ -187,14 +187,19 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                                   </div>
                                   <div className="space-y-1.5">
                                     {groupBySubTask(tasks).map(([zone, zoneTasks]) => (
-                                      <div key={zone} className="pl-1 border-l-2 border-slate-200">
-                                        <p className="text-[10px] font-bold text-slate-500 mb-0.5">
-                                          {zone}{' '}
-                                          <span className="font-normal text-slate-400">
-                                            ({zoneTasks.length})
+                                      <div key={zone} className="pl-1">
+                                        <p className="mb-1 inline-flex items-center gap-1.5">
+                                          <span
+                                            className="text-[10px] font-bold text-white rounded-full px-2 py-0.5 shadow-sm"
+                                            style={{ backgroundColor: getZoneColor(zone) }}
+                                          >
+                                            {zone}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400 font-semibold">
+                                            {zoneTasks.length}
                                           </span>
                                         </p>
-                                        <ul className="space-y-0.5">
+                                        <ul className="space-y-0.5 mb-1.5">
                                           {zoneTasks.map((t) => (
                                             <li
                                               key={t.id}
