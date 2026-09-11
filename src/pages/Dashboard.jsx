@@ -82,23 +82,23 @@ export default function Dashboard() {
     ? tasks.filter((t) => assignments[t.id] === selectedTeam.id)
     : []
 
-  // Tâches groupées par description (une ligne ne se retrouve plus
-  // au milieu d'un groupe de même tâche)
-  const orderedTeamGroups = useMemo(() => {
-    const sorted = [...selectedTeamTasks].sort(
-      (a, b) =>
-        String(a.description || '').localeCompare(String(b.description || '')) ||
-        Number(a.seq || 0) - Number(b.seq || 0)
-    )
-    const groups = []
-    sorted.forEach((t) => {
-      const last = groups[groups.length - 1]
-      const key = t.description || 'Sans description'
-      if (last && last.description === key) last.tasks.push(t)
-      else groups.push({ description: key, tasks: [t] })
+  // Tâches structurées comme le PDF : bloc -> sous-tâche (zone) -> lignes
+  const teamStructured = useMemo(() => {
+    const blocks = {}
+    selectedTeamTasks.forEach((t) => {
+      const b = t.taskType || 'AUTRE'
+      if (!blocks[b]) blocks[b] = {}
+      const z = t.workArea || 'Autre'
+      if (!blocks[b][z]) blocks[b][z] = []
+      blocks[b][z].push(t)
     })
-    return groups
-  }, [selectedTeamTasks]) // eslint-disable-line react-hooks/exhaustive-deps
+    return Object.entries(blocks).map(([blk, zones]) => ({
+      blk,
+      zones: Object.entries(zones)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([zone, tasks]) => ({ zone, tasks })),
+    }))
+  }, [selectedTeamTasks])
 
   const buildTeamPdf = () => {
     const doc = new jsPDF()
@@ -563,54 +563,55 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orderedTeamGroups.map((group, _gi) => (
-                      <Fragment key={`g-${group.description}`}>
-                        <tr className="h-2.5 bg-slate-200/70" aria-hidden="true">
-                          <td colSpan={6} />
-                        </tr>
-                        <tr className="bg-slate-50">
-                          <td colSpan={6} className="px-3 py-1.5 text-xs font-bold text-slate-700">
-                            {group.description || 'Sans description'}{' '}
-                            <span className="font-normal text-slate-400">
-                              ({group.tasks.length} ligne{group.tasks.length > 1 ? 's' : ''})
+                    {teamStructured.map(({ blk, zones }) => (
+                      <Fragment key={blk}>
+                        <tr className="bg-slate-200/70">
+                          <td colSpan={6} className="px-3 py-1 text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(blk) }}>
+                            Bloc {getCategoryLabel(blk)}{' '}
+                            <span className="font-normal opacity-90">
+                              ({zones.reduce((a, z) => a + z.tasks.length, 0)} tâche
+                              {zones.reduce((a, z) => a + z.tasks.length, 0) > 1 ? 's' : ''})
                             </span>
                           </td>
                         </tr>
-                        {group.tasks.map((task) => (
-                          <tr key={task.id} className="border-b hover:bg-slate-50">
-                            <td className="px-3 py-2 font-mono font-bold text-xs text-slate-600 whitespace-nowrap">
-                              {task.taskBarcode || '—'}
-                            </td>
-                            <td className="px-3 py-2 font-bold text-slate-500 whitespace-nowrap">
-                              {task.seq || '—'}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              <span
-                                className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
-                                style={{ backgroundColor: getCategoryColor(task.taskType) }}
-                              >
-                                {getCategoryLabel(task.taskType) || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {task.workArea ? (
-                                <span
-                                  className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
-                                  style={{ backgroundColor: getZoneColor(task.workArea, zones) }}
-                                >
-                                  {task.workArea}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 max-w-md truncate text-slate-600 text-xs" title={task.description}>
-                              {task.description || '—'}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-slate-600">
-                              {task.registration || '—'}
-                            </td>
-                          </tr>
+                        {zones.map(({ zone, tasks }) => (
+                          <Fragment key={zone}>
+                            <tr className="bg-slate-50">
+                              <td colSpan={6} className="px-3 py-1 text-xs font-bold text-slate-700">
+                                {'📍 '}{zone}{' '}
+                                <span className="font-normal text-slate-400">({tasks.length})</span>
+                              </td>
+                            </tr>
+                            {tasks.map((task) => (
+                              <tr key={task.id} className="border-b hover:bg-slate-50">
+                                <td className="px-3 py-2 font-mono font-bold text-xs text-slate-600 whitespace-nowrap">
+                                  {task.taskBarcode || '—'}
+                                </td>
+                                <td className="px-3 py-2 font-bold text-slate-500 whitespace-nowrap">
+                                  {task.seq || '—'}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  <span
+                                    className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                                    style={{ backgroundColor: getCategoryColor(task.taskType) }}
+                                  >
+                                    {getCategoryLabel(task.taskType) || '—'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getZoneColor(task.workArea, zones) }}>
+                                    {task.workArea || '—'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 max-w-md truncate text-slate-600 text-xs" title={task.description}>
+                                  {task.description || '—'}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap text-slate-600">
+                                  {task.registration || '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </Fragment>
                         ))}
                       </Fragment>
                     ))}
