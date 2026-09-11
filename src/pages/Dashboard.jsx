@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useState } from 'react'
+import { Fragment, useMemo, useEffect, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { openPdfPrint } from '../utils/pdfPrint'
+import { openPdfPrint, downloadPdfAsJpeg } from '../utils/pdfPrint'
 import { useApp } from '../context/AppContext'
 import {
   getCategoryColor,
@@ -22,6 +22,7 @@ import {
   X,
   Printer,
   FileDown,
+  Image as ImageIcon,
 } from 'lucide-react'
 
 function groupByZone(blockTasks) {
@@ -80,6 +81,24 @@ export default function Dashboard() {
   const selectedTeamTasks = selectedTeam
     ? tasks.filter((t) => assignments[t.id] === selectedTeam.id)
     : []
+
+  // Tâches groupées par description (une ligne ne se retrouve plus
+  // au milieu d'un groupe de même tâche)
+  const orderedTeamGroups = useMemo(() => {
+    const sorted = [...selectedTeamTasks].sort(
+      (a, b) =>
+        String(a.description || '').localeCompare(String(b.description || '')) ||
+        Number(a.seq || 0) - Number(b.seq || 0)
+    )
+    const groups = []
+    sorted.forEach((t) => {
+      const last = groups[groups.length - 1]
+      const key = t.description || 'Sans description'
+      if (last && last.description === key) last.tasks.push(t)
+      else groups.push({ description: key, tasks: [t] })
+    })
+    return groups
+  }, [selectedTeamTasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildTeamPdf = () => {
     const doc = new jsPDF()
@@ -502,6 +521,19 @@ export default function Dashboard() {
                   <FileDown className="h-4 w-4" /> Exporter en PDF
                 </button>
                 <button
+                  onClick={() => {
+                    if (!selectedTeam || !selectedTeamTasks.length) return
+                    downloadPdfAsJpeg(
+                      buildTeamPdf(),
+                      `equipe-${selectedTeam.name.replace(/[^a-z0-9]+/gi, '-') || 'sans-nom'}.pdf`
+                    )
+                  }}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
+                  title="Exporter la charge de l'équipe en image JPEG"
+                >
+                  <ImageIcon className="h-4 w-4" /> JPEG
+                </button>
+                <button
                   onClick={printTeamPdf}
                   className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
                   title="Imprimer la charge de l'équipe"
@@ -520,47 +552,49 @@ export default function Dashboard() {
               {selectedTeamTasks.length > 0 && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[520px]">
-                  <thead>
-                    <tr className="text-left bg-slate-100 rounded">
-                      <th className="px-3 py-2 font-semibold text-slate-700">TRFX</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">N°</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Type</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Bloc</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Tâche</th>
-                      <th className="px-3 py-2 font-semibold text-slate-700">Appareil</th>
-                    </tr>
-                  </thead>
                   <tbody>
-                    {selectedTeamTasks.map((task) => (
-                      <tr key={task.id} className="border-b hover:bg-slate-50">
-                        <td className="px-3 py-2 font-mono font-bold text-xs text-slate-600 whitespace-nowrap">
-                          {task.taskBarcode || '—'}
-                        </td>
-                        <td className="px-3 py-2 font-bold text-slate-500 whitespace-nowrap">
-                          {task.seq || '—'}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
-                            {getCategoryLabel(task.taskType) || '—'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          {task.workArea ? (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getZoneColor(task.workArea, zones) }}>
-                              {task.workArea}
+                    {orderedTeamGroups.map((group, _gi) => (
+                      <Fragment key={`g-${group.description}`}>
+                        <tr className="bg-slate-100">
+                          <td colSpan={6} className="px-3 py-1.5 text-xs font-bold text-slate-700">
+                            {group.description || 'Sans description'}{' '}
+                            <span className="font-normal text-slate-400">
+                              ({group.tasks.length} ligne{group.tasks.length > 1 ? 's' : ''})
                             </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 max-w-md" title={task.description}>
-                          <p className="truncate">{task.description}</p>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">
-                            {task.registration || '—'}
                           </td>
                         </tr>
-                      ))}
+                        {group.tasks.map((task) => (
+                          <tr key={task.id} className="border-b hover:bg-slate-50">
+                            <td className="px-3 py-2 font-mono font-bold text-xs text-slate-600 whitespace-nowrap">
+                              {task.taskBarcode || '—'}
+                            </td>
+                            <td className="px-3 py-2 font-bold text-slate-500 whitespace-nowrap">
+                              {task.seq || '—'}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getCategoryColor(task.taskType) }}>
+                                {getCategoryLabel(task.taskType) || '—'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {task.workArea ? (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: getZoneColor(task.workArea, zones) }}>
+                                  {task.workArea}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 max-w-md text-slate-500 text-xs" title={task.description}>
+                              <p className="truncate italic">(même tâche)</p>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-slate-600">
+                              {task.registration || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    ))}
                     </tbody>
                   </table>
                 </div>

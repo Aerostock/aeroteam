@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import { NavLink } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { detectColumns, parseExcelRows, getCategoryColor, getCategoryLabel, CATEGORIES } from '../utils/helpers'
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Filter } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Filter, ListOrdered } from 'lucide-react'
 
 export default function ImportExcel() {
   const { tasks, addTasks } = useApp()
@@ -70,15 +71,44 @@ export default function ImportExcel() {
         </p>
       </div>
 
+      {/* Ordre d'utilisation */}
+      <div className="bg-white rounded-xl shadow p-4">
+        <h3 className="font-semibold text-slate-700 flex items-center gap-2 mb-2">
+          <ListOrdered className="h-5 w-5 text-sky-500" /> Ordre d'utilisation de l'application
+        </h3>
+        <ol className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-5 text-sm">
+          {[
+            { n: 1, label: 'Import Victory', route: '/import' },
+            { n: 2, label: 'Équipes', route: '/equipes' },
+            { n: 3, label: 'Affectation', route: '/affectation' },
+            { n: 4, label: 'Tâches', route: '/taches' },
+            { n: 5, label: 'Tableau de bord', route: '/' },
+          ].map((s) => (
+            <li key={s.n}>
+              <NavLink
+                to={s.route}
+                end={s.route === '/'}
+                className="flex items-center gap-2 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-lg px-3 py-2"
+              >
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-sky-600 text-white text-xs font-bold shrink-0">
+                  {s.n}
+                </span>
+                <span className="font-medium text-slate-700">{s.label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ol>
+      </div>
+
       {/* Rappel des filtres actifs */}
       <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
         <h3 className="font-semibold text-sky-800 flex items-center gap-2 mb-2">
           <Filter className="h-5 w-5" /> Filtres d'import actifs
         </h3>
         <div className="text-sm text-sky-700 space-y-1">
-          <p>• <strong>Skills (colonne F)</strong> : toutes les lignes dont un des skills commence par CABB (ex. B1B2/CABB1B2)</p>
-          <p>• <strong>MTX Status (colonne G)</strong> : uniquement ACTV, PAUSE et IN WORK</p>
-          <p>• <strong>Task Type (colonne H)</strong> : tous les blocs (JIC, Found Fault, MPC, ADHOC, EO)</p>
+          <p>• <strong>Skills</strong> : toutes les lignes dont un des skills commence par CABB (ex. B1B2/CABB1B2)</p>
+          <p>• <strong>MTX Status</strong> : uniquement ACTV, PAUSE et IN WORK</p>
+          <p>• <strong>Task Type</strong> : tous les blocs (JIC, Found Fault, MPC, ADHOC, EO)</p>
         </div>
       </div>
 

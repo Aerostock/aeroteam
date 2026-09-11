@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { getZoneColor, getCategoryColor, getCategoryLabel } from '../utils/helpers'
 import ManualTaskForm from '../components/ManualTaskForm'
-import { Search, Trash2, ChevronDown, ChevronRight, Pencil, Check, X } from 'lucide-react'
+import { Search, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, CheckCircle2, RotateCcw } from 'lucide-react'
 
 export default function Taches() {
   const { tasks, teams, assignments, removeTask, removeTasksByBlock, addTasks, updateTask } = useApp()
@@ -70,14 +70,24 @@ export default function Taches() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Tâches par zone</h1>
+        <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
+      </div>
+
+      {/* Ajout manuel — bien visible */}
+      <div className="bg-white rounded-xl shadow p-3 flex flex-wrap items-center justify-between gap-2 border-l-4 border-l-sky-600">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Tâches par zone</h1>
-          <p className="text-slate-600 mt-1">{filtered.length} tâches — groupées par zone de travail</p>
+          <p className="text-sm font-semibold text-slate-800">Ajouter une ligne manuellement</p>
+          <p className="text-xs text-slate-500">
+            Utile quand une ligne ne correspond à aucune tâche importée (pièce, stock, etc.).
+          </p>
         </div>
-        <div className="w-full sm:w-auto">
-          <ManualTaskForm onAdd={addTasks} zoneOptions={zones} existingTasks={tasks} />
-        </div>
+        <ManualTaskForm onAdd={addTasks} zoneOptions={zones} existingTasks={tasks} />
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -238,11 +248,30 @@ export default function Taches() {
                                   ? 'bg-green-100 text-green-700'
                                   : task.mtxStatus === 'PAUSE'
                                   ? 'bg-amber-100 text-amber-700'
+                                  : task.mtxStatus === 'COMPLETE'
+                                  ? 'bg-slate-200 text-slate-600'
                                   : 'bg-slate-100 text-slate-700'
                               }`}
                             >
                               {task.mtxStatus}
                             </span>
+                            {task.mtxStatus !== 'COMPLETE' ? (
+                              <button
+                                onClick={() => updateTask(task.id, { mtxStatus: 'COMPLETE' })}
+                                className="text-slate-300 hover:text-green-600 ml-1"
+                                title="Marquer la tâche COMPLETE"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => updateTask(task.id, { mtxStatus: 'ACTV' })}
+                                className="text-slate-300 hover:text-sky-600 ml-1"
+                                title="Rétablir la tâche ACTV"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-2">{task.registration || '-'}</td>
                           <td className="px-4 py-2">

@@ -70,10 +70,10 @@ export default function ManualTaskForm({ onAdd, defaultBlock = 'ADHOC', zoneOpti
     return (
       <button
         onClick={reset}
-        className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 border border-dashed border-sky-300 hover:bg-sky-50 rounded-md px-3 py-1.5"
-        title="Ajouter une ligne manuellement"
+        className="flex items-center justify-center gap-2 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 border border-sky-700 shadow-sm rounded-lg px-4 py-2.5"
+        title="Ajouter une ligne manuellement au planning"
       >
-        <Plus className="h-3.5 w-3.5" /> Ajouter une ligne
+        <Plus className="h-4 w-4" /> Ajouter une ligne
       </button>
     )
   }

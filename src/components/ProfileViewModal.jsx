@@ -8,8 +8,8 @@ import {
   getZoneColor,
   hexToRgb,
 } from '../utils/helpers'
-import { openPdfPrint } from '../utils/pdfPrint'
-import { X, UserCog, Users, ClipboardList, FileDown, Printer, Eraser } from 'lucide-react'
+import { openPdfPrint, downloadPdfAsJpeg } from '../utils/pdfPrint'
+import { X, UserCog, Users, ClipboardList, FileDown, Printer, Eraser, FileImage } from 'lucide-react'
 
 function StatBox({ label, value }) {
   return (
@@ -201,6 +201,10 @@ function exportRecapPdf(profile, data) {
   )
 }
 
+function exportRecapJpeg(profile, data) {
+  downloadPdfAsJpeg(buildRecapPdf(profile, data), `recap-${profile.name || 'profil'}.pdf`)
+}
+
 export default function ProfileViewModal({ profile, adminCode, onClose }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -285,6 +289,13 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                   <FileDown className="h-4 w-4" /> Exporter PDF
                 </button>
                 <button
+                  onClick={() => exportRecapJpeg(profile, data)}
+                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+                  title="Télécharger le récap en image JPEG"
+                >
+                  <FileImage className="h-4 w-4" /> JPEG
+                </button>
+                <button
                   onClick={() => openPdfPrint(buildRecapPdf(profile, data))}
                   className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
                   title="Imprimer le récap au format PDF"
@@ -295,9 +306,10 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
                   onClick={handlePurge}
                   disabled={purging}
                   className="bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
-                  title="Supprimer les consignes des jours passés"
+                  title="Supprime les consignes [C] des jours déjà écoulés de la semaine (hier et avant) — aujourd'hui et les jours suivants sont conservés"
                 >
-                  <Eraser className="h-4 w-4" /> {purging ? 'Purge…' : 'Purger passés'}
+                  <Eraser className="h-4 w-4" />{' '}
+                  {purging ? 'Purge…' : 'Purger les consignes passées'}
                 </button>
               </>
             )}

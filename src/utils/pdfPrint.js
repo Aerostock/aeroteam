@@ -1,3 +1,19 @@
+// Télécharge le contenu d'un PDF (jsPDF) au format JPEG (rendu image)
+export function downloadPdfAsJpeg(doc, filename) {
+  try {
+    const canvas = doc.output('canvas')
+    const url = canvas.toDataURL('image/jpeg', 0.92)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = (filename || 'document.pdf').replace(/\.pdf$/i, '') + '.jpg'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch {
+    alert("Export JPEG indisponible dans ce navigateur — utilisez l'export PDF.")
+  }
+}
+
 // Imprime un PDF généré (jsPDF) via le visionneur du navigateur,
 // au lieu d'une capture d'écran de la page.
 export function openPdfPrint(doc) {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { openPdfPrint } from '../utils/pdfPrint'
+import { openPdfPrint, downloadPdfAsJpeg } from '../utils/pdfPrint'
 import { useApp } from '../context/AppContext'
 import {
   detectColumns,
@@ -27,6 +27,7 @@ import {
   Pencil,
   Check,
   FileDown,
+  FileImage,
 } from 'lucide-react'
 
 export default function Preparation() {
@@ -316,6 +317,18 @@ export default function Preparation() {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '') || 'sans-nom'}-${new Date().toISOString().slice(0, 10)}.pdf`
+    )
+  }
+
+  const exportPocketJpeg = () => {
+    if (!printPocket) return
+    const doc = buildPocketPdf()
+    downloadPdfAsJpeg(
+      doc,
+      `pochette-${printPocket.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'sans-nom'}.pdf`
     )
   }
 
@@ -835,6 +848,13 @@ export default function Preparation() {
                 </div>
               </div>
               <div className="flex items-center gap-2 print:hidden">
+                <button
+                  onClick={exportPocketJpeg}
+                  disabled={printTasks.length === 0}
+                  className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+                >
+                  <FileImage className="h-4 w-4" /> JPEG
+                </button>
                 <button
                   onClick={exportPocketPdf}
                   disabled={printTasks.length === 0}
