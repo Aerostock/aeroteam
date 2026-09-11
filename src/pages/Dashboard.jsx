@@ -272,7 +272,7 @@ export default function Dashboard() {
       {consignes.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-amber-500" /> Consignes de l'avion
+            <ClipboardList className="h-5 w-5 text-amber-500" /> Consignes du jour
           </h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {consignes.map((n) => (

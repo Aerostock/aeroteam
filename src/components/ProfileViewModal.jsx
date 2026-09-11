@@ -42,6 +42,13 @@ const groupByBlock = (tasks) => {
   return Object.entries(by).sort((a, b) => b[1].length - a[1].length)
 }
 
+function profileTitle(profile) {
+  const air = profile?.aircraft || ''
+  const name = profile?.name || ''
+  if (air && name.includes(air)) return name
+  return air ? `${name}  ·  ${air}` : name
+}
+
 function buildRecapPdf(profile, data) {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -57,7 +64,7 @@ function buildRecapPdf(profile, data) {
 
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text(`${profile.name}  ·  ${profile.aircraft || ''}`, margin, 15)
+  doc.text(profileTitle(profile), margin, 15)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.text(
@@ -265,8 +272,7 @@ export default function ProfileViewModal({ profile, adminCode, onClose }) {
         <div className="px-5 py-4 border-b flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white rounded-t-xl">
           <h2 className="font-bold flex items-center gap-2">
             <UserCog className="h-5 w-5 text-sky-400" />
-            {profile.name}
-            <span className="text-sm font-normal text-slate-300">· {profile.aircraft || '—'}</span>
+            <span className="truncate">{profileTitle(profile)}</span>
           </h2>
           <div className="flex items-center gap-2">
             {data && (
