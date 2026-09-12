@@ -132,6 +132,49 @@ export async function adminPurgeConsignes(adminCode, profileId) {
   return data
 }
 
+export async function adminListDeclarations(adminCode, statut = '') {
+  const { data, error } = await supabase.rpc('admin_list_declarations', {
+    p_admin_code: adminCode,
+    p_statut: statut,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminValidateDeclaration(adminCode, id) {
+  const { data, error } = await supabase.rpc('admin_validate_declaration', {
+    p_admin_code: adminCode,
+    p_id: id,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminRefuseDeclaration(adminCode, id, motif) {
+  const { data, error } = await supabase.rpc('admin_refuse_declaration', {
+    p_admin_code: adminCode,
+    p_id: id,
+    p_motif: motif,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminSetPrimeMontant(adminCode, montant) {
+  const { data, error } = await supabase.rpc('admin_set_prime_montant', {
+    p_admin_code: adminCode,
+    p_montant: montant,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function getPrimeMontant() {
+  const { data, error } = await supabase.rpc('get_prime_montant')
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error

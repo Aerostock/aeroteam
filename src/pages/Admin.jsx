@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { useApp } from '../context/AppContext'
 import * as profileStore from '../lib/profileStore'
 import ProfileViewModal from '../components/ProfileViewModal'
@@ -13,6 +14,9 @@ import {
   Check,
   X,
   UserCog,
+  Euro,
+  CheckCircle2,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 export default function Admin() {
@@ -98,6 +102,117 @@ export default function Admin() {
   const [deleting, setDeleting] = useState(null)
 
   const [viewProfile, setViewProfile] = useState(null)
+
+  // ---------- Demandes de primes ----------
+  const [primes, setPrimes] = useState(null)
+  const [primeFilter, setPrimeFilter] = useState('soumise')
+  const [primeMontant, setPrimeMontant] = useState(5)
+  const [primeError, setPrimeError] = useState('')
+  const [primeBusy, setPrimeBusy] = useState(null)
+
+  const loadPrimes = (statut) => {
+    if (!activeProfile?.code) return
+    profileStore
+      .adminListDeclarations(activeProfile.code, statut || primeFilter)
+      .then((res) => {
+        if (res?.error) setPrimeError("Impossible de charger les demandes.")
+        else setPrimes(res.declarations || [])
+      })
+      .catch(() => setPrimeError("Impossible de charger les demandes."))
+  }
+
+  useEffect(() => {
+    profileStore
+      .getPrimeMontant()
+      .then((res) => {
+        if (res?.montant) setPrimeMontant(res.montant)
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const primeStatutBadge = (s) =>
+    s === 'validee'
+      ? 'bg-green-100 text-green-800'
+      : s === 'refusee'
+      ? 'bg-red-100 text-red-800'
+      : 'bg-amber-100 text-amber-800'
+
+  const handleValidatePrime = async (id) => {
+    setPrimeBusy(id)
+    setPrimeError('')
+    try {
+      await profileStore.adminValidateDeclaration(activeProfile?.code, id)
+      loadPrimes()
+    } catch {
+      setPrimeError("Échec de la validation.")
+    }
+    setPrimeBusy(null)
+  }
+
+  const handleRefusePrime = async (id) => {
+    const motif = window.prompt("Motif du refus (obligatoire) :")
+    if (!motif || !motif.trim()) return
+    setPrimeBusy(id)
+    setPrimeError('')
+    try {
+      const res = await profileStore.adminRefuseDeclaration(activeProfile?.code, id, motif.trim())
+      if (res?.error === 'motif_requis') setPrimeError("Le motif est obligatoire.")
+      else loadPrimes()
+    } catch {
+      setPrimeError("Échec du refus.")
+    }
+    setPrimeBusy(null)
+  }
+
+  const handleChangeMontant = async () => {
+    const raw = window.prompt('Montant unitaire de la prime (€) :', String(primeMontant))
+    const v = parseFloat(raw)
+    if (isNaN(v) || v <= 0) return
+    try {
+      const res = await profileStore.adminSetPrimeMontant(activeProfile?.code, v)
+      if (res?.ok) setPrimeMontant(v)
+      else setPrimeError('Montant invalide.')
+    } catch {
+      setPrimeError("Échec de la modification du montant.")
+    }
+  }
+
+  const exportPrimes = () => {
+    const rows = (primes || []).map((d) => [
+      d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : '',
+      d.agent_nom || '',
+      d.agent_identifiant || '',
+      d.date_intervention || '',
+      d.avion || '',
+      d.element || '',
+      d.description || '',
+      Number(d.montant || 0),
+      d.statut || '',
+      d.motif_refus || '',
+      d.decided_at ? new Date(d.decided_at).toLocaleDateString('fr-FR') : '',
+    ])
+    const perAgent = {}
+    ;(primes || []).forEach((d) => {
+      const key = d.agent_nom || d.agent_identifiant || '—'
+      if (d.statut === 'validee') perAgent[key] = (perAgent[key] || 0) + Number(d.montant || 0)
+    })
+    const totals = Object.entries(perAgent).map(([agent, montant]) => [agent, Number(montant).toFixed(2)])
+    const totalGeneral = Object.values(perAgent).reduce((a, b) => a + b, 0)
+    const wsData = [
+      ['Date', 'Agent', 'Identifiant', "Date d'intervention", 'Avion', 'Élément', 'Description', 'Montant (€)', 'Statut', 'Motif refus', 'Décidé le'],
+      ...rows,
+      [],
+      ['Totaux par agent (validées)'],
+      ...totals,
+      ['Total général (€)', Number(totalGeneral).toFixed(2)],
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(wsData)
+    ws['!cols'] = [12, 25, 16, 16, 12, 20, 50, 12, 12, 30, 12].map((wch) => ({ wch }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Primes')
+    XLSX.writeFile(wb, `primes-${primeFilter || 'toutes'}-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
 
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -471,6 +586,129 @@ if (res?.error === 'not_found') setProfilesError("Ce profil n'existe déjà plus
           {adminMsg && <p className="text-sm text-sky-700 mt-2">{adminMsg}</p>}
         </div>
       )}
+
+      {/* Demandes de primes (AeroPrimes) */}
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6 max-w-4xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-800">
+            <Euro className="h-5 w-5 text-emerald-500" /> Demandes de primes
+            {primes && <span className="text-sm font-normal text-slate-400">({primes.length})</span>}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={primeFilter}
+              onChange={(e) => {
+                setPrimeFilter(e.target.value)
+                loadPrimes(e.target.value)
+              }}
+              className="border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            >
+              <option value="soumise">À valider</option>
+              <option value="validee">Validées</option>
+              <option value="refusee">Refusées</option>
+              <option value="">Toutes</option>
+            </select>
+            <button
+              onClick={exportPrimes}
+              disabled={!primes || primes.length === 0}
+              className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700 disabled:opacity-50 text-sm font-semibold"
+              title="Exporter les demandes affichées en Excel"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Exporter Excel
+            </button>
+            <span className="text-sm text-slate-600 inline-flex items-center gap-1">
+              <Euro className="h-4 w-4 text-emerald-500" /> {primeMontant.toFixed(2)} €
+            </span>
+            <button
+              onClick={handleChangeMontant}
+              className="text-sky-600 hover:underline text-xs"
+              title="Modifier le montant unitaire de la prime"
+            >
+              modifier
+            </button>
+          </div>
+        </div>
+        {primeError && <p className="text-sm text-red-600 mb-3">{primeError}</p>}
+        {primes === null && <p className="text-sm text-slate-400">Chargement…</p>}
+        {primes && primes.length === 0 && (
+          <p className="text-sm text-slate-400 italic">
+            Aucune demande {primeFilter ? `(${primeFilter})` : ''} pour le moment.
+          </p>
+        )}
+        {primes && primes.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[820px]">
+              <thead>
+                <tr className="text-left bg-slate-50">
+                  <th className="px-3 py-2 font-semibold text-slate-700">Envoyée le</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Agent</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Avion</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Élément</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Description</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Intervention</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Montant</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Statut</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Décision</th>
+                </tr>
+              </thead>
+              <tbody>
+                {primes.map((d) => (
+                  <tr key={d.id} className="border-b hover:bg-slate-50 align-top">
+                    <td className="px-3 py-2 text-slate-500">
+                      {d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="font-medium">{d.agent_nom || '—'}</span>
+                      <span className="block text-[11px] text-slate-400">{d.agent_identifiant}</span>
+                    </td>
+                    <td className="px-3 py-2 font-mono font-bold text-sky-700">{d.avion || '—'}</td>
+                    <td className="px-3 py-2">{d.element || '—'}</td>
+                    <td className="px-3 py-2 max-w-[240px]">
+                      <span className="truncate block" title={d.description}>{d.description}</span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {d.date_intervention
+                        ? new Date(d.date_intervention).toLocaleDateString('fr-FR')
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-2 font-semibold">{Number(d.montant || 0).toFixed(2)} €</td>
+                    <td className="px-3 py-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${primeStatutBadge(d.statut)}`}>
+                        {d.statut === 'validee' ? 'Validée' : d.statut === 'refusee' ? 'Refusée' : 'Soumise'}
+                      </span>
+                      {d.statut === 'refusee' && d.motif_refus && (
+                        <span className="block text-[11px] text-red-600 mt-0.5" title={d.motif_refus}>
+                          {d.motif_refus}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {d.statut === 'soumise' && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleValidatePrime(d.id)}
+                            disabled={primeBusy === d.id}
+                            className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded px-2 py-1 disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Valider
+                          </button>
+                          <button
+                            onClick={() => handleRefusePrime(d.id)}
+                            disabled={primeBusy === d.id}
+                            className="flex items-center gap-1 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-50 rounded px-2 py-1 disabled:opacity-50"
+                          >
+                            <X className="h-3.5 w-3.5" /> Refuser
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <p className="text-xs text-slate-400 flex items-center gap-1.5">
         <ShieldCheck className="h-4 w-4" /> Connecté en tant qu'administrateur : {activeProfile?.name}
