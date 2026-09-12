@@ -24,6 +24,10 @@ alter table public.consignes_messages
   add column if not exists dossier_id uuid
   references public.consignes_folders(id) on delete cascade;
 
+-- Les messages de dossiers n'ont plus de consigne : colonne facultative
+alter table public.consignes_messages
+  alter column consigne_id drop not null;
+
 -- 3) Déplacement des messages existants : sujet -> dossier avion
 update public.consignes_messages as m
 set dossier_id = c.dossier_id

@@ -281,8 +281,10 @@ export default function Consignes() {
       setReplyPreviews([])
       await loadMessages(selectedDossierId)
       await loadFolders(false)
-    } catch {
-      setReplyError('Échec de l’envoi (hors ligne ? photo trop lourde ?).')
+    } catch (err) {
+      setReplyError(
+        `Échec de l’envoi : ${err?.message || 'hors ligne ? photo trop lourde ?'}`
+      )
     }
     setSending(false)
   }
