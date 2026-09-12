@@ -275,6 +275,7 @@ setEditError(res.error || 'Échec de la mise à jour.')
     // eslint-disable-next-line react/set-state-in-effect -- chargement initial de la liste des profils
     setProfilesError('')
     loadAdmins()
+    loadPrimes()
     profileStore
       .listProfiles(activeProfile.code)
       .then((res) => {
