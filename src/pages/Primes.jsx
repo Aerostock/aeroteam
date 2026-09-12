@@ -10,6 +10,7 @@ import {
   Users,
   UserX,
   UserCheck,
+  UserCog,
   Trash2,
 } from 'lucide-react'
 
@@ -70,6 +71,9 @@ export default function Primes() {
   const [agents, setAgents] = useState(null)
   const [agentsError, setAgentsError] = useState('')
   const [agentBusy, setAgentBusy] = useState(null)
+  const [managersList, setManagersList] = useState(null)
+  const [assignId, setAssignId] = useState(null)
+  const [assignValue, setAssignValue] = useState('')
 
   const loadPrimes = async () => {
     if (!activeProfile?.code) return
@@ -114,6 +118,13 @@ export default function Primes() {
       })
       .catch(() => setAgentsError('Impossible de charger les comptes agents.'))
   }, [activeProfile])
+
+  useEffect(() => {
+    profileStore
+      .listManagers()
+      .then((res) => setManagersList(res?.ok ? res.managers || [] : []))
+      .catch(() => setManagersList([]))
+  }, [])
 
   const afterDecision = () => {
     loadPrimes()
@@ -195,6 +206,30 @@ export default function Primes() {
       else await loadAgents()
     } catch {
       setAgentsError('Échec de la suppression.')
+    }
+    setAgentBusy(null)
+  }
+
+  const handleSetManager = async (agent) => {
+    setAgentBusy(agent.identifiant)
+    setAgentsError('')
+    try {
+      const res = await profileStore.adminSetAgentManager(
+        activeProfile?.code,
+        agent.identifiant,
+        assignValue || null
+      )
+      if (res?.error === 'manager_inconnu') setAgentsError('Manager inconnu.')
+      else if (res?.error) setAgentsError("Échec de l'affectation.")
+      else {
+        setAssignId(null)
+        setAssignValue('')
+        loadPrimes()
+        loadAgents()
+        window.dispatchEvent(new Event('primes-updated'))
+      }
+    } catch {
+      setAgentsError("Échec de l'affectation.")
     }
     setAgentBusy(null)
   }
@@ -467,7 +502,8 @@ export default function Primes() {
         </h2>
         <p className="text-xs text-slate-400 mb-3">
           Désactivez un compte pour bloquer sa connexion, ou supprimez-le — ses déclarations
-          restent dans l'historique.
+          restent dans l'historique. « Assigner » rattache l'agent à un manager (les primes en
+          attente suivent le nouveau manager).
         </p>
         {agentsError && <p className="text-sm text-red-600 mb-3">{agentsError}</p>}
         {agents === null && <p className="text-sm text-slate-400">Chargement…</p>}
@@ -476,11 +512,12 @@ export default function Primes() {
         )}
         {agents && agents.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="text-left bg-slate-50">
                   <th className="px-3 py-2 font-semibold text-slate-700">Identifiant</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">Nom</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Manager</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">Inscrit le</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">En attente</th>
                   <th className="px-3 py-2 font-semibold text-slate-700">Validées</th>
@@ -496,6 +533,13 @@ export default function Primes() {
                       {a.identifiant}
                     </td>
                     <td className="px-3 py-2">{a.nom || '—'}</td>
+                    <td className="px-3 py-2">
+                      {a.manager_nom ? (
+                        <span className="text-slate-700">{a.manager_nom}</span>
+                      ) : (
+                        <span className="text-xs italic text-slate-400">Non assigné</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-slate-500">
                       {a.created_at
                         ? new Date(a.created_at).toLocaleDateString('fr-FR')
@@ -518,34 +562,79 @@ export default function Primes() {
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          onClick={() => handleToggleAgent(a)}
-                          disabled={agentBusy === a.identifiant}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border disabled:opacity-50 ${
-                            a.actif
-                              ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
-                              : 'border-green-300 text-green-700 hover:bg-green-50'
-                          }`}
-                        >
-                          {a.actif ? (
-                            <>
-                              <UserX className="h-3.5 w-3.5" /> Désactiver
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-3.5 w-3.5" /> Réactiver
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAgent(a)}
-                          disabled={agentBusy === a.identifiant}
-                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                        </button>
-                      </div>
+                      {assignId === a.identifiant ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <select
+                            value={assignValue}
+                            onChange={(e) => setAssignValue(e.target.value)}
+                            className="border border-slate-300 rounded-md px-2 py-1 text-xs bg-white"
+                          >
+                            <option value="">— Non assigné —</option>
+                            {(managersList || []).map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleSetManager(a)}
+                            disabled={agentBusy === a.identifiant}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
+                          >
+                            <Check className="h-3.5 w-3.5" /> OK
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAssignId(null)
+                              setAssignValue('')
+                            }}
+                            className="rounded-full p-1 text-slate-400 hover:text-slate-700"
+                            title="Annuler"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            onClick={() => {
+                              setAssignId(a.identifiant)
+                              setAssignValue(a.manager_id || '')
+                            }}
+                            disabled={agentBusy === a.identifiant}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+                            title="Rattacher ou changer de manager — les primes en attente suivent"
+                          >
+                            <UserCog className="h-3.5 w-3.5" /> Assigner
+                          </button>
+                          <button
+                            onClick={() => handleToggleAgent(a)}
+                            disabled={agentBusy === a.identifiant}
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border disabled:opacity-50 ${
+                              a.actif
+                                ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                                : 'border-green-300 text-green-700 hover:bg-green-50'
+                            }`}
+                          >
+                            {a.actif ? (
+                              <>
+                                <UserX className="h-3.5 w-3.5" /> Désactiver
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-3.5 w-3.5" /> Réactiver
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAgent(a)}
+                            disabled={agentBusy === a.identifiant}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

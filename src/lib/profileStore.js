@@ -196,6 +196,22 @@ export async function adminDeleteAgent(adminCode, identifiant) {
   return data
 }
 
+export async function listManagers() {
+  const { data, error } = await supabase.rpc('list_managers')
+  if (error) throw error
+  return data
+}
+
+export async function adminSetAgentManager(adminCode, identifiant, managerId) {
+  const { data, error } = await supabase.rpc('admin_set_agent_manager', {
+    p_admin_code: adminCode,
+    p_identifiant: identifiant,
+    p_manager_id: managerId || null,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error
