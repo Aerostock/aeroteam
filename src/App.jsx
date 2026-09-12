@@ -13,6 +13,7 @@ import BlocNotes from './pages/BlocNotes'
 import Consignes from './pages/Consignes'
 import ImportConsignes from './pages/ImportConsignes'
 import Admin from './pages/Admin'
+import Primes from './pages/Primes'
 
 function AppContent() {
   const { activeProfile, loading, error, isAdmin } = useApp()
@@ -38,6 +39,7 @@ function AppContent() {
         <Route path="/consignes" element={<Consignes />} />
         <Route path="/export" element={<Export />} />
         {isAdmin && <Route path="/admin" element={<Admin />} />}
+        {isAdmin && <Route path="/primes" element={<Primes />} />}
         {isAdmin && <Route path="/import-consignes" element={<ImportConsignes />} />}
       </Routes>
     </Layout>

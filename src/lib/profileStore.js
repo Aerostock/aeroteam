@@ -141,10 +141,11 @@ export async function adminListDeclarations(adminCode, statut = '') {
   return data
 }
 
-export async function adminValidateDeclaration(adminCode, id) {
+export async function adminValidateDeclaration(adminCode, id, categorie) {
   const { data, error } = await supabase.rpc('admin_validate_declaration', {
     p_admin_code: adminCode,
     p_id: id,
+    p_categorie: categorie,
   })
   if (error) throw error
   return data
@@ -160,17 +161,37 @@ export async function adminRefuseDeclaration(adminCode, id, motif) {
   return data
 }
 
-export async function adminSetPrimeMontant(adminCode, montant) {
-  const { data, error } = await supabase.rpc('admin_set_prime_montant', {
+export async function adminPendingPrimesCount(adminCode) {
+  const { data, error } = await supabase.rpc('admin_pending_primes_count', {
     p_admin_code: adminCode,
-    p_montant: montant,
   })
   if (error) throw error
   return data
 }
 
-export async function getPrimeMontant() {
-  const { data, error } = await supabase.rpc('get_prime_montant')
+export async function adminListAgents(adminCode) {
+  const { data, error } = await supabase.rpc('admin_list_agents', {
+    p_admin_code: adminCode,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminSetAgentActif(adminCode, identifiant, actif) {
+  const { data, error } = await supabase.rpc('admin_set_agent_actif', {
+    p_admin_code: adminCode,
+    p_identifiant: identifiant,
+    p_actif: actif,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminDeleteAgent(adminCode, identifiant) {
+  const { data, error } = await supabase.rpc('admin_delete_agent', {
+    p_admin_code: adminCode,
+    p_identifiant: identifiant,
+  })
   if (error) throw error
   return data
 }

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Plane, LogOut, ClipboardList } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import * as profileStore from '../lib/profileStore'
 
 const navItems = [
   { to: '/', label: 'Tableau de bord', end: true, ordre: 5 },
@@ -17,12 +19,36 @@ const navItems = [
 export default function Layout({ children }) {
   const { activeProfile, disconnect, isAdmin, saveState, resolveConflict, notes } = useApp()
 
+  const [primesPending, setPrimesPending] = useState(0)
+
+  useEffect(() => {
+    if (!isAdmin || !activeProfile?.code) return
+    let alive = true
+    const load = () => {
+      profileStore
+        .adminPendingPrimesCount(activeProfile.code)
+        .then((res) => {
+          if (alive && res?.ok) setPrimesPending(Number(res.count || 0))
+        })
+        .catch(() => {})
+    }
+    load()
+    const timer = setInterval(load, 60000)
+    const onUpdate = () => load()
+    window.addEventListener('primes-updated', onUpdate)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      window.removeEventListener('primes-updated', onUpdate)
+    }
+  }, [isAdmin, activeProfile?.code])
+
   const consignesCount = (notes || []).filter((n) =>
     String(n.title || '').startsWith('[C] ')
   ).length
 
   const items = isAdmin
-    ? [...navItems, { to: '/admin', label: 'Administration' }, { to: '/import-consignes', label: 'Import consignes' }]
+    ? [...navItems, { to: '/admin', label: 'Administration' }, { to: '/primes', label: 'Primes' }, { to: '/import-consignes', label: 'Import consignes' }]
     : navItems
 
   const switchProfile = () => {
@@ -122,6 +148,14 @@ export default function Layout({ children }) {
                 </span>
               )}
               {item.label}
+              {item.to === '/primes' && primesPending > 0 && (
+                <span
+                  className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold align-middle"
+                  title={`${primesPending} prime(s) en attente de validation`}
+                >
+                  {primesPending}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>
