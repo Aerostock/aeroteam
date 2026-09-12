@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import Layout from './components/Layout'
 import ProfileSelector from './pages/ProfileSelector'
@@ -26,6 +26,13 @@ function AppContent() {
     )
   }
   if (!activeProfile) return <ProfileSelector />
+  if (isAdmin === null) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center gap-3">
+        <p className="text-slate-500">Vérification des droits…</p>
+      </div>
+    )
+  }
   return (
     <Layout>
       <Routes>
@@ -41,6 +48,7 @@ function AppContent() {
         {isAdmin && <Route path="/admin" element={<Admin />} />}
         {isAdmin && <Route path="/primes" element={<Primes />} />}
         {isAdmin && <Route path="/import-consignes" element={<ImportConsignes />} />}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
   )

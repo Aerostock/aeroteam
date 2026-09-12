@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import { Plane, LogIn, KeyRound } from 'lucide-react'
 
 export default function ProfileSelector() {
-  const { connectProfile } = useApp()
+  const { connectProfile, error } = useApp()
 
   const [code, setCode] = useState('')
   const [connecting, setConnecting] = useState(false)
@@ -42,6 +42,7 @@ export default function ProfileSelector() {
             autoFocus
           />
           {connectError && <p className="text-sm text-red-600">{connectError}</p>}
+          {!connectError && error && <p className="text-sm text-red-600">{error}</p>}
           <button
             onClick={handleConnect}
             disabled={connecting || !code.trim()}

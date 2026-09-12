@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { Plane, LogOut, ClipboardList } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import * as profileStore from '../lib/profileStore'
@@ -18,6 +18,7 @@ const navItems = [
 
 export default function Layout({ children }) {
   const { activeProfile, disconnect, isAdmin, saveState, resolveConflict, notes } = useApp()
+  const navigate = useNavigate()
 
   const [primesPending, setPrimesPending] = useState(0)
 
@@ -54,6 +55,7 @@ export default function Layout({ children }) {
   const switchProfile = () => {
     if (window.confirm(`Quitter le profil « ${activeProfile?.name} » ? (les données sont sauvegardées dans le cloud)`)) {
       disconnect()
+      navigate('/')
     }
   }
 

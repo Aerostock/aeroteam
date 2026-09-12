@@ -82,7 +82,7 @@ export function AppProvider({ children }) {
 
   const isConnected = !!code && !!activeProfile
   const [saveState, setSaveState] = useState('saved')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(null)
 
   // Applique un profil servi par Supabase (ou du cache) aux états locaux
   const applyProfileData = useCallback((profile) => {
@@ -289,10 +289,12 @@ export function AppProvider({ children }) {
             rev: cached.rev ?? 0,
             data: cached.data,
           })
+          setIsAdmin(false)
           setLoaded(true)
           setSaveState('offline')
         } else {
           setError('Impossible de se connecter : ' + (err.message || 'erreur réseau'))
+          setIsAdmin(false)
           setLoaded(false)
         }
       })
