@@ -201,6 +201,15 @@ export default function Consignes() {
     ) {
       return
     }
+    if (isWeek) {
+      const confirmedTwice = window.confirm(
+        `DERNIÈRE VÉRIFICATION — semaine « ${folder.name} »\n\n` +
+          'Cliquez OK pour supprimer DÉFINITIVEMENT cette semaine, tous ses dossiers avions ' +
+          'et toutes leurs conversations.\n\n' +
+          'Cette suppression est IRRÉVERSIBLE. En cas de doute, cliquez Annuler.'
+      )
+      if (!confirmedTwice) return
+    }
     try {
       await profileStore.deleteFolder(folder.id)
       if (selectedDossierId === folder.id) setSelectedDossierId(null)
