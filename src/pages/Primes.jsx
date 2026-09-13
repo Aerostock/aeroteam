@@ -12,6 +12,7 @@ import {
   UserCheck,
   UserCog,
   Trash2,
+  Mail,
 } from 'lucide-react'
 
 const CATEGORIES = {
@@ -75,6 +76,15 @@ export default function Primes() {
   const [assignId, setAssignId] = useState(null)
   const [assignValue, setAssignValue] = useState('')
 
+  const [notifyEmail, setNotifyEmail] = useState('')
+  const [notifyFrom, setNotifyFrom] = useState('')
+  const [notifyFromName, setNotifyFromName] = useState('')
+  const [notifyConfigured, setNotifyConfigured] = useState(false)
+  const [notifyKey, setNotifyKey] = useState('')
+  const [notifyMsg, setNotifyMsg] = useState('')
+  const [notifyError, setNotifyError] = useState('')
+  const [notifyBusy, setNotifyBusy] = useState(false)
+
   const loadPrimes = async () => {
     if (!activeProfile?.code) return
     try {
@@ -125,6 +135,95 @@ export default function Primes() {
       .then((res) => setManagersList(res?.ok ? res.managers || [] : []))
       .catch(() => setManagersList([]))
   }, [])
+
+  useEffect(() => {
+    if (!activeProfile?.code) return
+    profileStore
+      .adminGetNotifyInfo(activeProfile.code)
+      .then((res) => {
+        if (res?.ok) {
+          setNotifyEmail(res.email || '')
+          setNotifyFrom(res.from_email || '')
+          setNotifyFromName(res.from_name || '')
+          setNotifyConfigured(res.configured === true)
+        }
+      })
+      .catch(() => {})
+  }, [activeProfile])
+
+  const refreshNotifyInfo = async () => {
+    try {
+      const res = await profileStore.adminGetNotifyInfo(activeProfile?.code)
+      if (res?.ok) {
+        setNotifyFrom(res.from_email || '')
+        setNotifyFromName(res.from_name || '')
+        setNotifyConfigured(res.configured === true)
+      }
+    } catch {
+      /* silencieux */
+    }
+  }
+
+  const saveNotifyEmail = async () => {
+    setNotifyBusy(true)
+    setNotifyMsg('')
+    setNotifyError('')
+    try {
+      const res = await profileStore.adminSetMyEmail(activeProfile?.code, notifyEmail)
+      if (res?.error === 'email_invalide') setNotifyError('Adresse email invalide.')
+      else if (res?.error) setNotifyError("Échec de l'enregistrement.")
+      else {
+        setNotifyMsg('Adresse enregistrée.')
+        setNotifyEmail(res.email || notifyEmail)
+      }
+    } catch {
+      setNotifyError("Échec de l'enregistrement (hors ligne ?).")
+    }
+    setNotifyBusy(false)
+  }
+
+  const saveNotifyConfig = async () => {
+    setNotifyBusy(true)
+    setNotifyMsg('')
+    setNotifyError('')
+    try {
+      const res = await profileStore.adminSetNotifyConfig(
+        activeProfile?.code,
+        notifyKey,
+        notifyFrom,
+        notifyFromName
+      )
+      if (res?.error === 'email_invalide') setNotifyError('Adresse expéditrice invalide.')
+      else if (res?.error) setNotifyError("Échec de l'enregistrement.")
+      else {
+        setNotifyMsg('Configuration enregistrée.')
+        setNotifyKey('')
+        await refreshNotifyInfo()
+      }
+    } catch {
+      setNotifyError("Échec de l'enregistrement (hors ligne ?).")
+    }
+    setNotifyBusy(false)
+  }
+
+  const sendTestEmail = async () => {
+    setNotifyBusy(true)
+    setNotifyMsg('')
+    setNotifyError('')
+    try {
+      const res = await profileStore.adminTestEmail(activeProfile?.code)
+      if (res?.error === 'email_requis')
+        setNotifyError("Renseignez d'abord votre adresse email ci-dessus.")
+      else if (res?.error === 'config_manquante')
+        setNotifyError("Configuration d'envoi incomplète (clé Brevo + adresse expéditrice).")
+      else if (res?.error) setNotifyError("Échec de l'envoi du test.")
+      else
+        setNotifyMsg('Email de test envoyé — vérifiez votre boîte (et les indésirables).')
+    } catch {
+      setNotifyError("Échec de l'envoi du test (hors ligne ?).")
+    }
+    setNotifyBusy(false)
+  }
 
   const afterDecision = () => {
     loadPrimes()
@@ -642,6 +741,87 @@ export default function Primes() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+        <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-1">
+          <Mail className="h-5 w-5 text-sky-500" /> Notifications email
+          {notifyConfigured && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+              ENVOI ACTIF
+            </span>
+          )}
+        </h2>
+        <p className="text-xs text-slate-400 mb-3">
+          Recevez un email dès qu'une déclaration est soumise par un de vos agents. Chaque
+          manager enregistre sa propre adresse ici.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] max-w-2xl">
+          <input
+            type="email"
+            value={notifyEmail}
+            onChange={(e) => setNotifyEmail(e.target.value)}
+            placeholder="votre.adresse@exemple.com"
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+          />
+          <button
+            onClick={saveNotifyEmail}
+            disabled={notifyBusy}
+            className="bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold"
+          >
+            Enregistrer
+          </button>
+        </div>
+        <button
+          onClick={sendTestEmail}
+          disabled={notifyBusy}
+          className="mt-2 text-sky-600 hover:underline text-xs disabled:opacity-50"
+        >
+          Envoyer un email de test
+        </button>
+        {(notifyMsg || notifyError) && (
+          <p className={`text-sm mt-2 ${notifyError ? 'text-red-600' : 'text-emerald-700'}`}>
+            {notifyError || notifyMsg}
+          </p>
+        )}
+
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs font-medium text-slate-500">
+            Configuration de l'envoi (Brevo) — à remplir une seule fois
+          </summary>
+          <div className="grid gap-2 mt-3 max-w-2xl">
+            <input
+              type="password"
+              value={notifyKey}
+              onChange={(e) => setNotifyKey(e.target.value)}
+              placeholder="Clé API Brevo (xkeysib-…)"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm font-mono"
+            />
+            <input
+              value={notifyFrom}
+              onChange={(e) => setNotifyFrom(e.target.value)}
+              placeholder="Adresse expéditrice dédiée (ex : primes@votredomaine.fr)"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+            <input
+              value={notifyFromName}
+              onChange={(e) => setNotifyFromName(e.target.value)}
+              placeholder="Nom affiché de l'expéditeur (ex : AeroSuite Primes)"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+            <button
+              onClick={saveNotifyConfig}
+              disabled={notifyBusy}
+              className="bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-900 disabled:opacity-50 text-sm font-semibold w-fit"
+            >
+              Enregistrer la configuration
+            </button>
+            <p className="text-[11px] text-slate-400">
+              La clé n'est enregistrée que si le champ est rempli (elle n'est jamais réaffichée).
+              L'adresse expéditrice doit être vérifiée au préalable dans votre compte Brevo.
+            </p>
+          </div>
+        </details>
       </div>
     </div>
   )

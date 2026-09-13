@@ -212,6 +212,42 @@ export async function adminSetAgentManager(adminCode, identifiant, managerId) {
   return data
 }
 
+export async function adminGetNotifyInfo(adminCode) {
+  const { data, error } = await supabase.rpc('admin_get_notify_info', {
+    p_admin_code: adminCode,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminSetMyEmail(adminCode, email) {
+  const { data, error } = await supabase.rpc('admin_set_my_email', {
+    p_admin_code: adminCode,
+    p_email: email,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminSetNotifyConfig(adminCode, apiKey, fromEmail, fromName) {
+  const { data, error } = await supabase.rpc('admin_set_notify_config', {
+    p_admin_code: adminCode,
+    p_brevo_api_key: apiKey,
+    p_from_email: fromEmail,
+    p_from_name: fromName,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function adminTestEmail(adminCode) {
+  const { data, error } = await supabase.rpc('admin_test_email', {
+    p_admin_code: adminCode,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function getConsignes() {
   const { data, error } = await supabase.rpc('get_consignes')
   if (error) throw error

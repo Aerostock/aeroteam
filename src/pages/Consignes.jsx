@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify'
 import * as profileStore from '../lib/profileStore'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { hashCodeKey } from '../utils/helpers'
+import { hashCodeKey, currentWeekLabel } from '../utils/helpers'
 import RichEditor from '../components/RichEditor'
 import {
   Plus,
@@ -45,6 +45,11 @@ export default function Consignes() {
   const [messages, setMessages] = useState(null)
   const [messagesError, setMessagesError] = useState('')
   const [expanded, setExpanded] = useState([])
+
+  const currentWeekNum = useMemo(
+    () => parseInt((String(currentWeekLabel()).match(/\d+/) || [0])[0], 10) || 0,
+    []
+  )
 
   const [folderModal, setFolderModal] = useState(null)
   const [folderName, setFolderName] = useState('')
@@ -337,11 +342,16 @@ export default function Consignes() {
             )}
             {tree.map(({ folder: wf, children }) => {
               const weekOpen = expanded.includes(wf.id)
+              const isCurrent = wf.weekNum === currentWeekNum && currentWeekNum > 0
               return (
                 <div key={wf.id}>
                   <div
                     className={`flex items-center gap-2 px-3 py-2.5 text-sm border-b border-slate-100 transition-colors ${
-                      weekOpen ? 'bg-slate-100' : 'hover:bg-slate-50'
+                      isCurrent
+                        ? 'bg-amber-50 ring-1 ring-inset ring-amber-200'
+                        : weekOpen
+                        ? 'bg-slate-100'
+                        : 'hover:bg-slate-50'
                     }`}
                   >
                     <button
@@ -362,6 +372,12 @@ export default function Consignes() {
                       <span className={`truncate ${weekOpen ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
                         {wf.name}
                       </span>
+                      {isCurrent && (
+                        <span className="ml-1 inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                          EN COURS
+                        </span>
+                      )}
                       <span className="ml-auto text-xs text-slate-400 shrink-0 pr-1">
                         {children.length} av.
                       </span>
